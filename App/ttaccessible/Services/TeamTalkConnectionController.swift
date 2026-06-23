@@ -95,7 +95,7 @@ final class TeamTalkConnectionController {
     var reusableInstance: UnsafeMutableRawPointer?
     let clientName = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
         ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)
-        ?? "ttAccessible"
+        ?? "tt-Accessible"
     let preferencesStore: AppPreferencesStore
     let userVolumeStore = UserVolumeStore()
     let lastChannelStore = LastChannelStore()
@@ -384,7 +384,7 @@ final class TeamTalkConnectionController {
             return preferredNickname
         }
 
-        return "ttAccessible"
+        return "tt-Accessible"
     }
 
     func clientVersion(for user: User) -> String {

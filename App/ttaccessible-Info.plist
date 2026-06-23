@@ -62,9 +62,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ttAccessible</string>
+	<string>tt-Accessible</string>
 	<key>CFBundleDisplayName</key>
-	<string>ttAccessible</string>
+	<string>tt-Accessible</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
@@ -74,13 +74,13 @@
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>ttAccessible can optionally control VoiceOver to read incoming messages while the app is in the background.</string>
+	<string>tt-Accessible can optionally control VoiceOver to read incoming messages while the app is in the background.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>ttAccessible uses the microphone to talk in TeamTalk channels.</string>
+	<string>tt-Accessible uses the microphone to talk in TeamTalk channels.</string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>ttAccessible can capture audio from other applications to stream it to TeamTalk channels.</string>
+	<string>tt-Accessible can capture audio from other applications to stream it to TeamTalk channels.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>ttAccessible can capture audio from specific applications to stream it to TeamTalk channels.</string>
+	<string>tt-Accessible can capture audio from specific applications to stream it to TeamTalk channels.</string>
 	<key>SUFeedURL</key>
 	<string>https://math65.github.io/ttaccessible/appcast.xml</string>
 	<key>SUPublicEDKey</key>
