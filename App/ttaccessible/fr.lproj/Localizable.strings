@@ -212,8 +212,8 @@
 "connectedServer.volume.sliderLabel" = "Volume en pourcentage";
 "connectedServer.volume.voice" = "Voix";
 "connectedServer.volume.mediaFile" = "Fichier média";
-"connectedServer.volume.voiceSliderLabel" = "Volume de la voix en pourcentage";
-"connectedServer.volume.mediaFileSliderLabel" = "Volume du fichier média en pourcentage";
+"connectedServer.volume.voiceSliderLabel" = "Volume de la voix";
+"connectedServer.volume.mediaFileSliderLabel" = "Volume du fichier média";
 "connectedServer.menu.makeOperator" = "Promouvoir opérateur de canal";
 "connectedServer.menu.revokeOperator" = "Révoquer opérateur de canal";
 "user.menu.makeOperator" = "Promouvoir opérateur de canal";
