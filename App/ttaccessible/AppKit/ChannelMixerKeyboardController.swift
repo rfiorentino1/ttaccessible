@@ -4,7 +4,8 @@
 //
 //  The Channel Mixer's keyboard model, matching Rocco's Mixer app: a local NSEvent
 //  monitor that, while VoiceOver is focused on a mixer strip, routes
-//    Cmd+Up/Down  -> master (output) volume
+//    Cmd+Up/Down  -> the focused user's media-file volume (master output volume when
+//                    the cursor is OUTSIDE the mixer)
 //    Up/Down      -> the focused user's voice volume
 //    Left/Right   -> the focused user's pan
 //    v / p / m    -> announce volume / pan / mute (single tap); reset 50% / center /
@@ -12,7 +13,8 @@
 //  Single/double-tap and key-repeat use the ported KeyCommandHandler / ArrowRepeatHandler.
 //  The focused user is resolved from VoiceOver's AX cursor (the "channel-strip-<id>"
 //  identifier set by the virtual-accessibility tree), so plain arrows are only hijacked
-//  while the cursor is inside the mixer — elsewhere they pass through untouched.
+//  while the cursor is inside the mixer — elsewhere they pass through untouched. Cmd+Up/Down
+//  is the exception: off a strip it adjusts master output volume.
 //
 
 #if os(macOS)
@@ -68,12 +70,20 @@ final class ChannelMixerKeyboardController {
         let cmd = mods.contains(.command)
         let plain = !cmd && !mods.contains(.option) && !mods.contains(.control)
 
-        // Cmd+Up/Down = master volume — available whenever the mixer cursor is active.
+        // Cmd+Up/Down:
+        //   • on a mixer strip -> that user's media-file volume
+        //   • anywhere else     -> master (output) volume
         if cmd, !mods.contains(.option), !mods.contains(.control),
-           let arrow, arrow == .up || arrow == .down,
-           findFocusedStripUserID() != nil {
-            arrowRepeat.start(key: arrow) { [weak self] in
-                if let text = self?.masterVolumeAdjust(arrow == .up) { self?.announce(text) }
+           let arrow, arrow == .up || arrow == .down {
+            if let uid = findFocusedStripUserID() {
+                arrowRepeat.start(key: arrow) { [weak self] in
+                    guard let self, let c = self.coordinator else { return }
+                    self.announce(c.nudgeMedia(uid, up: arrow == .up))
+                }
+            } else {
+                arrowRepeat.start(key: arrow) { [weak self] in
+                    if let text = self?.masterVolumeAdjust(arrow == .up) { self?.announce(text) }
+                }
             }
             return true
         }

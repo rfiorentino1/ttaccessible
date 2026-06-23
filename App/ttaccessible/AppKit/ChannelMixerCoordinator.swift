@@ -314,6 +314,12 @@ final class ChannelMixerCoordinator: ObservableObject {
         setVoice(id: id, percent: v)
         return L10n.format("mixer.value.percent", Int(v.rounded()))
     }
+    func nudgeMedia(_ id: Int32, up: Bool) -> String {
+        let v = min(100, max(0, currentMediaPercent(id) + (up ? volumeStep : -volumeStep)))
+        setMedia(id: id, percent: v)
+        // Qualified so VoiceOver distinguishes it from the plain-arrow voice nudge.
+        return L10n.format("mixer.media.label", L10n.format("mixer.value.percent", Int(v.rounded())))
+    }
     func nudgePan(_ id: Int32, right: Bool) -> String {
         let p = min(1, max(-1, currentPan(id) + (right ? panStep : -panStep)))
         setPan(id: id, value: p)
