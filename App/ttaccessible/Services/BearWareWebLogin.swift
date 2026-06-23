@@ -204,8 +204,14 @@ final class BearWareWebLoginClient {
         if let transportError {
             throw BearWareWebLoginError.network(transportError)
         }
+        // Phase B is best-effort (mirrors the Qt client): a missing or
+        // non-conforming <teamtalk><bearware> body must NOT surface as a fatal
+        // error — it only means bearware did not override the username. Return an
+        // empty string so the caller falls back to the record username. The strict
+        // `.invalidResponse` throw is reserved for `authenticate` (Phase A), the
+        // interactive Preferences setup where the user must see a real error.
         guard let resultData, let bearware = Self.bearwareElement(from: resultData) else {
-            throw BearWareWebLoginError.invalidResponse
+            return ""
         }
 
         return bearware.childText(named: "username")

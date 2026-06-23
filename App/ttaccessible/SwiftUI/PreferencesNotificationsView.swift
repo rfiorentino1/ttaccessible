@@ -128,6 +128,7 @@ final class NotificationParameterSliderNSView: NSView {
         valueLabel.stringValue = text
         setAccessibilityValue(value)
         setAccessibilityValueDescription(text)
+        NSAccessibility.post(element: self, notification: .valueChanged)
     }
 
     private func adjust(by delta: Double) {

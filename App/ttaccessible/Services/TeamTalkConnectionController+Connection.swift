@@ -442,17 +442,25 @@ extension TeamTalkConnectionController {
         }
         let accessToken = ttString(from: serverProperties.szAccessToken)
 
-        do {
-            let confirmedUsername = try bearWareWebLoginClient.clientAuth(
-                username: credential.username,
-                token: credential.token,
-                accessToken: accessToken
-            )
-            let loginUsername = confirmedUsername.isEmpty ? record.username : confirmedUsername
-            return (loginUsername, "")
-        } catch {
-            throw TeamTalkConnectionError.webLoginFailed(error.localizedDescription)
+        // No access token from the server (e.g. a race where szAccessToken is read
+        // empty on CON_SUCCESS): skip the bearware round-trip entirely and fall back
+        // to the record username with an empty password.
+        guard accessToken.isEmpty == false else {
+            return (record.username, "")
         }
+
+        // Best-effort, like the Qt client (mainwindow.cpp slotBearWareAuthReply:
+        // "connect even if auth failed. Otherwise user will not see progress"). A
+        // non-conforming bearware.dk response must never abort the connection: we
+        // fall back to the record username + empty password and let TT_DoLoginEx
+        // surface a real CMDERR if the server actually rejects the login.
+        let confirmedUsername = (try? bearWareWebLoginClient.clientAuth(
+            username: credential.username,
+            token: credential.token,
+            accessToken: accessToken
+        )) ?? ""
+        let loginUsername = confirmedUsername.isEmpty ? record.username : confirmedUsername
+        return (loginUsername, "")
     }
 
     // MARK: - Post-login options

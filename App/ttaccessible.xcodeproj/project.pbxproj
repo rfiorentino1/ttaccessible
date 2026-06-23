@@ -9,10 +9,20 @@
 /* Begin PBXBuildFile section */
 		94A4A5F73B941A8E00C01234 /* libTeamTalk5.dylib in Embed TeamTalk */ = {isa = PBXBuildFile; fileRef = 94A4A5F63B941A8E00C01234 /* libTeamTalk5.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		94A4A5F93B941A8E00C01234 /* libTeamTalk5.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 94A4A5F63B941A8E00C01234 /* libTeamTalk5.dylib */; };
-		94WEBRTC013B941A8E00C0AB /* libwebrtc-audio-processing.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 94WEBRTC003B941A8E00C0AB /* libwebrtc-audio-processing.a */; };
 		94BABE0100000000000000A1 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 94BABE0300000000000000A3 /* Sparkle */; };
 		94KS010100000000000000B1 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 94KS030100000000000000B3 /* KeyboardShortcuts */; };
+		94WEBRTC013B941A8E00C0AB /* libwebrtc-audio-processing.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 94WEBRTC003B941A8E00C0AB /* libwebrtc-audio-processing.a */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		941A58902FE8718F00C08287 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 943281BE2F68C35A00682D6B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 943281C52F68C35A00682D6B;
+			remoteInfo = ttaccessible;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		94A4A5F83B941A8E00C01234 /* Embed TeamTalk */ = {
@@ -29,12 +39,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		941A588C2FE8718F00C08287 /* ttaccessibleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ttaccessibleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		943281C62F68C35A00682D6B /* ttaccessible.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ttaccessible.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		94A4A5F63B941A8E00C01234 /* libTeamTalk5.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libTeamTalk5.dylib; path = ../Vendor/TeamTalk/libTeamTalk5.dylib; sourceTree = SOURCE_ROOT; };
 		94WEBRTC003B941A8E00C0AB /* libwebrtc-audio-processing.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libwebrtc-audio-processing.a"; path = "../Vendor/WebRTC/libwebrtc-audio-processing.a"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		941A588D2FE8718F00C08287 /* ttaccessibleTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ttaccessibleTests;
+			sourceTree = "<group>";
+		};
 		943281C82F68C35A00682D6B /* ttaccessible */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ttaccessible;
@@ -43,6 +59,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		941A58892FE8718F00C08287 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		943281C32F68C35A00682D6B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -61,6 +84,7 @@
 			isa = PBXGroup;
 			children = (
 				943281C82F68C35A00682D6B /* ttaccessible */,
+				941A588D2FE8718F00C08287 /* ttaccessibleTests */,
 				943281C72F68C35A00682D6B /* Products */,
 				9464D7D72F6AA07D001654FF /* Recovered References */,
 			);
@@ -70,6 +94,7 @@
 			isa = PBXGroup;
 			children = (
 				943281C62F68C35A00682D6B /* ttaccessible.app */,
+				941A588C2FE8718F00C08287 /* ttaccessibleTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -86,6 +111,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		941A588B2FE8718F00C08287 /* ttaccessibleTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 941A58942FE8718F00C08287 /* Build configuration list for PBXNativeTarget "ttaccessibleTests" */;
+			buildPhases = (
+				941A58882FE8718F00C08287 /* Sources */,
+				941A58892FE8718F00C08287 /* Frameworks */,
+				941A588A2FE8718F00C08287 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				941A58912FE8718F00C08287 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				941A588D2FE8718F00C08287 /* ttaccessibleTests */,
+			);
+			name = ttaccessibleTests;
+			packageProductDependencies = (
+			);
+			productName = ttaccessibleTests;
+			productReference = 941A588C2FE8718F00C08287 /* ttaccessibleTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		943281C52F68C35A00682D6B /* ttaccessible */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 943281D12F68C35A00682D6B /* Build configuration list for PBXNativeTarget "ttaccessible" */;
@@ -118,9 +166,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					941A588B2FE8718F00C08287 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 943281C52F68C35A00682D6B;
+					};
 					943281C52F68C35A00682D6B = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -146,11 +198,19 @@
 			projectRoot = "";
 			targets = (
 				943281C52F68C35A00682D6B /* ttaccessible */,
+				941A588B2FE8718F00C08287 /* ttaccessibleTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		941A588A2FE8718F00C08287 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		943281C42F68C35A00682D6B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -161,6 +221,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		941A58882FE8718F00C08287 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		943281C22F68C35A00682D6B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -170,7 +237,57 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		941A58912FE8718F00C08287 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 943281C52F68C35A00682D6B /* ttaccessible */;
+			targetProxy = 941A58902FE8718F00C08287 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		941A58922FE8718F00C08287 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 633EG76YX5;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = math65.ttaccessibleTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ttaccessible.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ttaccessible";
+			};
+			name = Debug;
+		};
+		941A58932FE8718F00C08287 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 633EG76YX5;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = math65.ttaccessibleTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ttaccessible.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ttaccessible";
+			};
+			name = Release;
+		};
 		943281CF2F68C35A00682D6B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -298,7 +415,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_TEAM = 633EG76YX5;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -319,7 +436,7 @@
 					"$(SRCROOT)/../Vendor/TeamTalk",
 					"$(SRCROOT)/../Vendor/WebRTC",
 				);
-				MARKETING_VERSION = "1.7.0-beta.1";
+				MARKETING_VERSION = "1.7.0-beta.5";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lc++",
@@ -346,7 +463,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_TEAM = 633EG76YX5;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -367,7 +484,7 @@
 					"$(SRCROOT)/../Vendor/TeamTalk",
 					"$(SRCROOT)/../Vendor/WebRTC",
 				);
-				MARKETING_VERSION = "1.7.0-beta.1";
+				MARKETING_VERSION = "1.7.0-beta.5";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lc++",
@@ -388,6 +505,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		941A58942FE8718F00C08287 /* Build configuration list for PBXNativeTarget "ttaccessibleTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				941A58922FE8718F00C08287 /* Debug */,
+				941A58932FE8718F00C08287 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		943281C12F68C35A00682D6B /* Build configuration list for PBXProject "ttaccessible" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

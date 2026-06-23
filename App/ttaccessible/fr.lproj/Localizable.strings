@@ -84,7 +84,7 @@
 "savedServer.form.initialChannelPath" = "Canal à rejoindre";
 "savedServer.form.initialChannelPassword" = "Mot de passe du canal";
 "savedServer.form.webLogin" = "Utiliser la connexion web BearWare";
-"savedServer.form.webLogin.help" = "Ce serveur utilisera votre compte BearWare pour se connecter. Configurez-le dans Préférences > Général.";
+"savedServer.form.webLogin.help" = "Ce serveur utilisera votre compte BearWare pour se connecter. Configurez-le dans Préférences > BearWare.";
 "common.cancel" = "Annuler";
 "common.close" = "Fermer";
 "common.ok" = "OK";
@@ -103,7 +103,7 @@
 "teamtalk.connection.error.timeout" = "Le serveur n'a pas répondu dans le délai attendu.";
 "teamtalk.connection.error.loginFailed" = "Le serveur a refusé l'identification.";
 "teamtalk.connection.error.internal" = "Une erreur interne TeamTalk est survenue.";
-"teamtalk.connection.error.webLoginNotConfigured" = "Ce serveur utilise la connexion web BearWare, mais aucun compte BearWare n'est configuré. Configurez-le dans Préférences > Général.";
+"teamtalk.connection.error.webLoginNotConfigured" = "Ce serveur utilise la connexion web BearWare, mais aucun compte BearWare n'est configuré. Configurez-le dans Préférences > BearWare.";
 "teamtalk.connection.error.webLoginFailed" = "La connexion web BearWare n'a pas pu aboutir.";
 "teamtalk.connection.error.webLoginServiceUnavailable" = "Le service de connexion BearWare est actuellement indisponible. Veuillez réessayer plus tard.";
 "bearware.error.network" = "Impossible de joindre le service de connexion BearWare.";
@@ -308,7 +308,7 @@
 "connectedServer.channelPassword.join" = "Rejoindre";
 "connectedServer.identity.nickname.menu" = "Changer le pseudo";
 "connectedServer.identity.nickname.title" = "Changer le pseudo";
-"connectedServer.identity.nickname.message" = "Saisissez le nouveau pseudo utilisé sur ce serveur.";
+"connectedServer.identity.nickname.message" = "Saisissez le nouveau pseudo utilisé sur ce serveur. Laissez le champ vide pour utiliser votre pseudo par défaut.";
 "connectedServer.identity.nickname.placeholder" = "Pseudo";
 "connectedServer.identity.nickname.field" = "Pseudo";
 "connectedServer.identity.nickname.updated" = "Pseudo mis à jour.";

@@ -76,6 +76,7 @@ final class AudioGainControlView: NSView {
         valueLabel.stringValue = text
         setAccessibilityValue(slider.doubleValue)
         setAccessibilityValueDescription(text)
+        NSAccessibility.post(element: self, notification: .valueChanged)
     }
 
     override var acceptsFirstResponder: Bool {

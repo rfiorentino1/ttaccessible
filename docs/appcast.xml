@@ -3,16 +3,40 @@
     <channel>
         <title>ttaccessible</title>
         <item>
-            <title>1.7.0-beta.1</title>
-            <pubDate>Sat, 20 Jun 2026 20:36:58 +0200</pubDate>
-            <link>https://github.com/math65/ttaccessible/releases/tag/v1.7.0-beta.1</link>
+            <title>1.7.0-beta.5</title>
+            <pubDate>Mon, 22 Jun 2026 17:14:49 +0200</pubDate>
+            <link>https://github.com/math65/ttaccessible/releases/tag/v1.7.0-beta.5</link>
             <sparkle:channel>beta</sparkle:channel>
-            <sparkle:version>32</sparkle:version>
-            <sparkle:shortVersionString>1.7.0-beta.1</sparkle:shortVersionString>
+            <sparkle:version>36</sparkle:version>
+            <sparkle:shortVersionString>1.7.0-beta.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.1-32.html</sparkle:releaseNotesLink>
-            <sparkle:releaseNotesLink xml:lang="fr">https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.1-32.fr.html</sparkle:releaseNotesLink>
-            <enclosure url="https://github.com/math65/ttaccessible/releases/download/v1.7.0-beta.1/ttaccessible-1.7.0-beta.1-32.zip" length="41538847" type="application/octet-stream" sparkle:edSignature="Mxv7uF7IsNextx0/jwOKv90/FQeNma8NEScRP6S2yw9b6rW4yQCL8iG3ymfm8I4sHCb2mr2HDlU8wjwtlYwhDw=="/>
+            <sparkle:releaseNotesLink>https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.5-36.html</sparkle:releaseNotesLink>
+            <sparkle:releaseNotesLink xml:lang="fr">https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.5-36.fr.html</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/math65/ttaccessible/releases/download/v1.7.0-beta.5/ttaccessible-1.7.0-beta.5-36.zip" length="42840613" type="application/octet-stream" sparkle:edSignature="jRjxxJnO4cxtLEEoC96ZOpnNq3L3XGFSgeQ+40yvYTsU84c99I2aWTCsSHJza1YB4eo9wvJPN+VhVCuqHylbAg=="/>
+        </item>
+        <item>
+            <title>1.7.0-beta.4</title>
+            <pubDate>Mon, 22 Jun 2026 11:26:37 +0200</pubDate>
+            <link>https://github.com/math65/ttaccessible/releases/tag/v1.7.0-beta.4</link>
+            <sparkle:channel>beta</sparkle:channel>
+            <sparkle:version>35</sparkle:version>
+            <sparkle:shortVersionString>1.7.0-beta.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.4-35.html</sparkle:releaseNotesLink>
+            <sparkle:releaseNotesLink xml:lang="fr">https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.4-35.fr.html</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/math65/ttaccessible/releases/download/v1.7.0-beta.4/ttaccessible-1.7.0-beta.4-35.zip" length="42840628" type="application/octet-stream" sparkle:edSignature="THS1/q5dDGoU/gXbTlfp+mexES2F/VYDYmX3IBJbF9T1ZYPMO2fxrm6ws92SfrHffCVdUauHAnS/44pLKrzQCQ=="/>
+        </item>
+        <item>
+            <title>1.7.0-beta.3</title>
+            <pubDate>Sun, 21 Jun 2026 20:54:15 +0200</pubDate>
+            <link>https://github.com/math65/ttaccessible/releases/tag/v1.7.0-beta.3</link>
+            <sparkle:channel>beta</sparkle:channel>
+            <sparkle:version>34</sparkle:version>
+            <sparkle:shortVersionString>1.7.0-beta.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.3-34.html</sparkle:releaseNotesLink>
+            <sparkle:releaseNotesLink xml:lang="fr">https://math65.github.io/ttaccessible/ttaccessible-1.7.0-beta.3-34.fr.html</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/math65/ttaccessible/releases/download/v1.7.0-beta.3/ttaccessible-1.7.0-beta.3-34.zip" length="41538874" type="application/octet-stream" sparkle:edSignature="P5meVGeatwT6AEKQ/Z1l0bj/oEpNp/Yy+tFCMaJIe2fDzE04bxvHQrq3CZrgRg/X1F1RjeDh2vQOiNCDGVebAg=="/>
         </item>
         <item>
             <title>1.6.0</title>

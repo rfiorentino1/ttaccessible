@@ -59,6 +59,7 @@ final class ConnectedServerViewController: NSViewController {
     let messageField = NSTextField(frame: .zero)
     let sendButton = NSButton(title: "", target: nil, action: nil)
     let microphoneButton = NSButton(title: "", target: nil, action: nil)
+    private var lastAnnouncedMicrophoneStatus: String?
     let collapsibleVideoPanel = CollapsibleVideoPanelView()
     lazy var channelMixerCoordinator = ChannelMixerCoordinator(controller: connectionController)
     lazy var channelMixerSectionView: NSView = buildChannelMixerSection()
@@ -706,6 +707,12 @@ final class ConnectedServerViewController: NSViewController {
         microphoneButton.isEnabled = session.currentChannelID > 0 || session.voiceTransmissionEnabled
         microphoneButton.setAccessibilityLabel(L10n.text("connectedServer.audio.microphone.accessibilityLabel"))
         microphoneButton.setAccessibilityValue(session.audioStatusText)
+        // Announce the new transmission status only when it actually changes, so VoiceOver
+        // doesn't re-read the value on every (frequent) updateAudioControls() call.
+        if lastAnnouncedMicrophoneStatus != session.audioStatusText {
+            lastAnnouncedMicrophoneStatus = session.audioStatusText
+            NSAccessibility.post(element: microphoneButton, notification: .valueChanged)
+        }
         inputGainControl.setValue(session.inputGainDB)
         outputGainControl.setValue(session.outputGainDB)
         soundEffectsGainControl.setValue(preferencesStore.preferences.soundEffectsGainDB)

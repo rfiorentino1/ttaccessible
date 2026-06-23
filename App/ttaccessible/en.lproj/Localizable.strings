@@ -84,7 +84,7 @@
 "savedServer.form.initialChannelPath" = "Channel to join";
 "savedServer.form.initialChannelPassword" = "Channel password";
 "savedServer.form.webLogin" = "Use BearWare web login";
-"savedServer.form.webLogin.help" = "This server will sign in with your BearWare account. Set it up in Preferences > General.";
+"savedServer.form.webLogin.help" = "This server will sign in with your BearWare account. Set it up in Preferences > BearWare.";
 "common.cancel" = "Cancel";
 "common.close" = "Close";
 "common.ok" = "OK";
@@ -103,7 +103,7 @@
 "teamtalk.connection.error.timeout" = "The server did not respond within the expected time.";
 "teamtalk.connection.error.loginFailed" = "The server rejected the login.";
 "teamtalk.connection.error.internal" = "An internal TeamTalk error occurred.";
-"teamtalk.connection.error.webLoginNotConfigured" = "This server uses BearWare web login, but no BearWare account is set up. Configure it in Preferences > General.";
+"teamtalk.connection.error.webLoginNotConfigured" = "This server uses BearWare web login, but no BearWare account is set up. Configure it in Preferences > BearWare.";
 "teamtalk.connection.error.webLoginFailed" = "The BearWare web login could not be completed.";
 "teamtalk.connection.error.webLoginServiceUnavailable" = "The BearWare login service is currently unavailable. Please try again later.";
 "bearware.error.network" = "Could not reach the BearWare login service.";
@@ -308,7 +308,7 @@
 "connectedServer.channelPassword.join" = "Join";
 "connectedServer.identity.nickname.menu" = "Change Nickname";
 "connectedServer.identity.nickname.title" = "Change Nickname";
-"connectedServer.identity.nickname.message" = "Enter the new nickname to use on this server.";
+"connectedServer.identity.nickname.message" = "Enter the new nickname to use on this server. Leave the field empty to use your default nickname.";
 "connectedServer.identity.nickname.placeholder" = "Nickname";
 "connectedServer.identity.nickname.field" = "Nickname";
 "connectedServer.identity.nickname.updated" = "Nickname updated.";
