@@ -325,7 +325,10 @@ extension ConnectedServerViewController {
         guard let channel = selectedChannel else {
             return
         }
+        join(channel)
+    }
 
+    func join(_ channel: ConnectedServerChannel) {
         if channel.isCurrentChannel {
             announce(L10n.format("connectedServer.action.alreadyInChannel", displayText(for: .channel(channel))))
             return
@@ -421,17 +424,25 @@ extension ConnectedServerViewController {
     }
 
     func performDefaultAction() {
-        switch selectedNode {
+        guard let node = selectedNode else {
+            return
+        }
+        performDefaultAction(for: node)
+    }
+
+    // Action par défaut sur un nœud explicite (la ligne sous le curseur VoiceOver),
+    // sans dépendre de la sélection : sans interaction le tableau n'a aucune ligne
+    // sélectionnée, mais VO-Espace doit quand même agir sur la ligne pressée.
+    func performDefaultAction(for node: ServerTreeNode) {
+        switch node {
         case .channel(let channel):
             if channel.isCurrentChannel {
                 leaveCurrentChannel(nil)
             } else {
-                joinSelectedChannel(nil)
+                join(channel)
             }
-        case .user:
-            openPrivateConversation(nil)
-        case .none:
-            return
+        case .user(let user):
+            appDelegate.openPrivateConversation(userID: user.id, displayName: user.displayName)
         }
     }
 

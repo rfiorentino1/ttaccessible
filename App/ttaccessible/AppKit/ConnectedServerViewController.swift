@@ -15,6 +15,20 @@ final class ServerTreeRowView: NSTableRowView {
     override func accessibilityCustomActions() -> [NSAccessibilityCustomAction]? { nil }
 }
 
+// Cellule d'étiquette qui transmet l'action « presser » de VoiceOver (VO-Espace)
+// à une closure, pour que VO-Espace active une ligne comme le fait la touche Entrée.
+// Sans cela, VO-Espace ne fait rien sur ces étiquettes et seule Entrée permet de
+// rejoindre un serveur / un salon.
+final class PressActionTextField: NSTextField {
+    var onPress: (() -> Void)?
+
+    override func accessibilityPerformPress() -> Bool {
+        guard let onPress else { return super.accessibilityPerformPress() }
+        onPress()
+        return true
+    }
+}
+
 
 final class ConnectedServerViewController: NSViewController {
     enum Column {
