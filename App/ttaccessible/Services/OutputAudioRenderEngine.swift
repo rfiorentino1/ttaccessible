@@ -153,6 +153,16 @@ private final class PerUserMixSource {
     private let primeFrames: Int
     private let maxFrames: Int
     private var isPrimed = false
+    /// Largest single block (in frames) this source has received. The channel
+    /// codec's tx interval sets the block size (20–120+ ms), and the buffer's
+    /// ceiling must scale with it — see `append`.
+    private(set) var maxBlockFrames = 0
+
+    // Diagnostics (read/reset by the engine's periodic mix report).
+    var statBlocksIn = 0
+    var statUnderruns = 0
+    var statCeilingDrops = 0
+    var statDroppedFrames = 0
 
     init(channels: Int, primeFrames: Int, maxFrames: Int, settings: OutputUserMixSettings) {
         self.channels = max(1, channels)
@@ -164,15 +174,34 @@ private final class PerUserMixSource {
     var availableFrames: Int { (buffer.count - head) / channels }
 
     func append(_ samples: [Int16]) {
+        let blockFrames = samples.count / channels
+        if blockFrames > maxBlockFrames { maxBlockFrames = blockFrames }
+        statBlocksIn += 1
         buffer.append(contentsOf: samples)
-        // Catch-up: never let this source get more than `maxFrames` ahead of the
-        // device clock — that is pure added latency. If it does (the SDK delivered
-        // a burst, or the source clock ran fast), drop the oldest audio down to the
-        // `primeFrames` jitter target so latency stays bounded, instead of pinning
-        // at the cap forever (which caused ~225 ms backlog + constant dropouts).
+        // Catch-up ceiling: never let this source run more than one normal swing
+        // ahead of the device clock — beyond that is pure added latency, so drop
+        // down to a healthy level instead of pinning at the cap forever.
+        //
+        // The ceiling MUST scale with the observed block size: the level swings by
+        // a whole block per arrival, on top of the small cushion the source
+        // self-builds against delivery jitter (each early underrun shifts the
+        // consume phase later, so arrivals land "earlier" next time). A fixed
+        // ceiling tuned for 40 ms blocks sat exactly at that swing's peak for the
+        // 60 ms tx-interval channels used by busy community servers — every trip
+        // gutted the cushion, re-underrunning and re-tripping in a permanent chop
+        // cycle ("buffery, barely understandable"). Scaled headroom costs nothing
+        // for 20/40 ms channels (the configured max still applies as the floor)
+        // and steady-state latency is set by arrivals, not by the ceiling.
+        let margin = primeFrames / 2
+        let effectiveMax = max(maxFrames, primeFrames + 2 * maxBlockFrames + margin)
         let availFrames = (buffer.count - head) / channels
-        if availFrames > maxFrames {
-            head += (availFrames - primeFrames) * channels
+        if availFrames > effectiveMax {
+            // Keep prime + one block after a trip (not bare prime): enough to
+            // bridge to the next arrival without an immediate re-underrun.
+            let dropTo = primeFrames + maxBlockFrames
+            statCeilingDrops += 1
+            statDroppedFrames += availFrames - dropTo
+            head += (availFrames - dropTo) * channels
         }
         if head > 16_384 {
             buffer.removeFirst(head)
@@ -186,7 +215,11 @@ private final class PerUserMixSource {
     func prepareForMix() -> Bool {
         if settings.muted { return false }
         if isPrimed {
-            if availableFrames == 0 { isPrimed = false; return false }
+            if availableFrames == 0 {
+                isPrimed = false
+                statUnderruns += 1
+                return false
+            }
             return true
         }
         if availableFrames >= primeFrames { isPrimed = true; return true }
@@ -258,6 +291,10 @@ final class OutputAudioRenderEngine {
     /// Fine timer on `engineQueue` that drives `pumpMix` (replaces the 20 ms message-loop tick).
     private var mixTimer: DispatchSourceTimer?
     private let pumpIntervalMS = 5
+    /// Pump ticks since the last per-source diagnostics report (engineQueue only).
+    private var ticksSinceMixReport = 0
+    /// ~5 s at the 5 ms pump interval.
+    private let mixReportEveryTicks = 1000
 
     init() {
         gainCell.initialize(to: 1)
@@ -599,6 +636,40 @@ final class OutputAudioRenderEngine {
 
         if primedCell.pointee == 0, ring.fillCount() / mixChannels >= targetFillFrames {
             primedCell.pointee = 1
+        }
+
+        reportMixHealthIfDue()
+    }
+
+    /// Every ~5 s, log per-source stats — but only when a source actually
+    /// underran or hit its catch-up ceiling, so a healthy session stays silent.
+    /// This is what distinguishes "blocks arrive gappy" (delivery/network/server)
+    /// from "blocks arrive fine but we mishandle them" (buffer tuning) in the field.
+    private func reportMixHealthIfDue() {
+        ticksSinceMixReport += 1
+        guard ticksSinceMixReport >= mixReportEveryTicks else { return }
+        ticksSinceMixReport = 0
+        guard deviceSampleRate > 0, userSources.isEmpty == false else { return }
+
+        let msPerFrame = 1000.0 / deviceSampleRate
+        var troubled: [String] = []
+        for (key, src) in userSources {
+            if src.statUnderruns > 0 || src.statCeilingDrops > 0 {
+                troubled.append(String(
+                    format: "key=%d blocks=%d maxBlock=%.0fms avail=%.0fms underruns=%d drops=%d dropped=%.0fms",
+                    key, src.statBlocksIn, Double(src.maxBlockFrames) * msPerFrame,
+                    Double(src.availableFrames) * msPerFrame,
+                    src.statUnderruns, src.statCeilingDrops,
+                    Double(src.statDroppedFrames) * msPerFrame
+                ))
+            }
+            src.statBlocksIn = 0
+            src.statUnderruns = 0
+            src.statCeilingDrops = 0
+            src.statDroppedFrames = 0
+        }
+        if troubled.isEmpty == false {
+            AudioLogger.log("mix diag: %d sources, troubled: %@", userSources.count, troubled.joined(separator: " | "))
         }
     }
 
