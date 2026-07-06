@@ -592,6 +592,9 @@ extension TeamTalkConnectionController {
         outputAudioReady = true
         appliedOutputPreference = preferencesStore.preferences.preferredOutputDevice
         startOutputRenderEngineLocked()
+        // Start the dedicated block drainer BEFORE enabling events, so the user
+        // set pushed by the refresh below lands on a running pump.
+        audioBlockPump.start(instance: instance, engine: outputRenderEngine)
         // Enable per-user audio block events for whoever is already in our channel.
         refreshPerUserAudioEventsLocked(instance: instance)
         // Re-arm our own media subscription if a stream is already active (e.g. the
@@ -638,16 +641,19 @@ extension TeamTalkConnectionController {
     }
 
     /// Separate mixer key for a user's media-file stream (kept distinct from their
-    /// voice stream).
-    func outputMediaSourceKey(_ userID: Int32) -> Int32 { userID | 0x4000_0000 }
+    /// voice stream). Static so AudioBlockPump shares the same mapping.
+    nonisolated static func outputMediaSourceKey(_ userID: Int32) -> Int32 { userID | 0x4000_0000 }
+    func outputMediaSourceKey(_ userID: Int32) -> Int32 { Self.outputMediaSourceKey(userID) }
 
     /// Reserved mixer key for the local "hear myself" monitor (negative, so it
     /// never collides with real user IDs or media keys, both positive).
     var localMonitorEngineKey: Int32 { -1 }
 
     /// Reserved mixer key for our OWN streamed media file, so the local user hears
-    /// what they broadcast. Negative for the same no-collision reason.
-    var localMediaEngineKey: Int32 { -2 }
+    /// what they broadcast. Negative for the same no-collision reason. Static so
+    /// AudioBlockPump shares the same key.
+    nonisolated static let localMediaEngineKey: Int32 = -2
+    var localMediaEngineKey: Int32 { Self.localMediaEngineKey }
 
     /// Subscribe (or unsubscribe) to our OWN media-file stream so the local user
     /// hears the media they broadcast into the channel. The SDK delivers this on
@@ -662,10 +668,12 @@ extension TeamTalkConnectionController {
             AudioLogger.log("local media: subscribed to own media stream for local playback")
         } else {
             TT_EnableAudioBlockEvent(instance, TT_LOCAL_USERID, media, 0)
-            outputRenderEngine.removeUser(localMediaEngineKey)
             AudioLogger.log("local media: unsubscribed from own media stream")
         }
         localMediaAudioEnabled = shouldEnable
+        // The pump drains this stream and removes its mix source on disable
+        // (ordered after its final enqueue).
+        audioBlockPump.setLocalMediaEnabled(shouldEnable)
     }
 
     /// Reconcile per-user audio block events with the users currently in our
@@ -698,10 +706,11 @@ extension TeamTalkConnectionController {
         for userID in toDisable {
             TT_EnableAudioBlockEvent(instance, userID, voice, 0)
             TT_EnableAudioBlockEvent(instance, userID, media, 0)
-            outputRenderEngine.removeUser(userID)
-            outputRenderEngine.removeUser(outputMediaSourceKey(userID))
         }
         perUserAudioEnabled = desired
+        // The pump removes departed users' mix sources itself, ordered after its
+        // final block enqueue for them (so no ghost source reappears).
+        audioBlockPump.setUsers(desired)
     }
 
     func channelUsersLocked(instance: UnsafeMutableRawPointer, channelID: Int32) -> [User] {
@@ -712,56 +721,30 @@ extension TeamTalkConnectionController {
         return Array(users.prefix(Int(count)))
     }
 
-    /// Dispatch a CLIENTEVENT_USER_AUDIOBLOCK. A remote user's voice/media goes to
-    /// the mixer for playback; the muxed stream (only enabled as the pre-14.2 AEC
-    /// fallback) feeds the echo canceller's far-end reference.
+    /// Dispatch a CLIENTEVENT_USER_AUDIOBLOCK. Only the muxed stream (the
+    /// pre-14.2 AEC reference fallback, whose consumer is confined to this
+    /// queue) is acquired here. Per-user voice/media and our own media stream
+    /// are drained by AudioBlockPump on its dedicated timer — acquiring them on
+    /// this queue starved every mix source at once whenever a tick ran long
+    /// (heavy publish in a crowded channel), making everyone sound choppy.
     func handleAudioBlockLocked(instance: UnsafeMutableRawPointer, source: Int32) {
-        if source == TT_MUXED_USERID {
-            guard let block = TT_AcquireUserAudioBlock(instance, UInt32(STREAMTYPE_VOICE.rawValue), TT_MUXED_USERID) else { return }
-            if speakerTapCaptureStorage == nil,
-               let aec = advancedMicrophoneEngine.echoCanceller,
-               let rawAudio = block.pointee.lpRawAudio {
-                let int16Ptr = rawAudio.assumingMemoryBound(to: Int16.self)
-                aec.feedReference(int16Ptr, count: Int(block.pointee.nSamples), channels: Int(block.pointee.nChannels), sampleRate: Int(block.pointee.nSampleRate))
-            }
-            TT_ReleaseUserAudioBlock(instance, block)
-            return
+        guard source == TT_MUXED_USERID else { return }
+        guard let block = TT_AcquireUserAudioBlock(instance, UInt32(STREAMTYPE_VOICE.rawValue), TT_MUXED_USERID) else { return }
+        if speakerTapCaptureStorage == nil,
+           let aec = advancedMicrophoneEngine.echoCanceller,
+           let rawAudio = block.pointee.lpRawAudio {
+            let int16Ptr = rawAudio.assumingMemoryBound(to: Int16.self)
+            aec.feedReference(int16Ptr, count: Int(block.pointee.nSamples), channels: Int(block.pointee.nChannels), sampleRate: Int(block.pointee.nSampleRate))
         }
-
-        if source == TT_LOCAL_USERID {
-            // Our own streamed media file, delivered so we hear what we broadcast.
-            // It's burstier than network audio, so it uses the deeper localMedia buffer.
-            enqueueUserAudioBlockLocked(instance: instance, userID: TT_LOCAL_USERID, streamType: STREAMTYPE_MEDIAFILE_AUDIO, engineKey: localMediaEngineKey, profile: .localMedia)
-            return
-        }
-
-        let myUserID = TT_GetMyUserID(instance)
-        guard source > 0, source != myUserID else { return }
-        enqueueUserAudioBlockLocked(instance: instance, userID: source, streamType: STREAMTYPE_VOICE, engineKey: source)
-        enqueueUserAudioBlockLocked(instance: instance, userID: source, streamType: STREAMTYPE_MEDIAFILE_AUDIO, engineKey: outputMediaSourceKey(source))
-    }
-
-    private func enqueueUserAudioBlockLocked(instance: UnsafeMutableRawPointer, userID: Int32, streamType: StreamType, engineKey: Int32, profile: OutputSourceBufferProfile = .network) {
-        guard let block = TT_AcquireUserAudioBlock(instance, UInt32(streamType.rawValue), userID) else { return }
-        defer { TT_ReleaseUserAudioBlock(instance, block) }
-        let frames = Int(block.pointee.nSamples)
-        let channels = Int(block.pointee.nChannels)
-        let sampleRate = Int(block.pointee.nSampleRate)
-        guard frames > 0, channels > 0, sampleRate > 0, let rawAudio = block.pointee.lpRawAudio else { return }
-        // Copy the SDK PCM out before the block is released — the engine consumes it
-        // asynchronously on its own queue.
-        let samplePtr = rawAudio.assumingMemoryBound(to: Int16.self)
-        let pcm = Array(UnsafeBufferPointer(start: samplePtr, count: frames * channels))
-        outputRenderEngine.enqueueUser(
-            engineKey,
-            pcm: pcm,
-            frames: frames, channels: channels, sampleRate: Double(sampleRate),
-            profile: profile
-        )
+        TT_ReleaseUserAudioBlock(instance, block)
     }
 
     /// Tear down the output render path (engine + all per-user / muxed events).
     func teardownOutputRenderLocked(instance: UnsafeMutableRawPointer?) {
+        // Stop the block pump FIRST (synchronous): after this no SDK calls come
+        // from its queue, so the events below can be disabled and the instance
+        // torn down without racing an in-flight acquire.
+        audioBlockPump.stop()
         outputRenderEngine.stop()
         if let instance {
             let voice = UInt32(STREAMTYPE_VOICE.rawValue)

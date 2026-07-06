@@ -217,6 +217,10 @@ final class TeamTalkConnectionController {
     /// and render it ourselves, so switching the output device never calls the
     /// SDK's deadlock-prone TT_CloseSoundOutputDevice. See OutputAudioRenderEngine.
     let outputRenderEngine = OutputAudioRenderEngine()
+    /// Dedicated drainer for per-user audio blocks, decoupled from the message
+    /// loop so a slow tick (heavy publish in a crowded channel) can never starve
+    /// the mix sources. See AudioBlockPump.
+    let audioBlockPump = AudioBlockPump()
     /// Remote user IDs we currently have per-user audio block events enabled for
     /// (reconciled with channel membership; the local user is never included).
     var perUserAudioEnabled: Set<Int32> = []
