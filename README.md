@@ -1,8 +1,8 @@
-# TTAccessible
+# tt-Accessible
 
 A native, fully accessible TeamTalk client for macOS, built with VoiceOver as a first-class citizen.
 
-The official TeamTalk Qt client on Mac has significant accessibility issues — broken navigation, unresponsive context menus, audio crackling, and sluggish VoiceOver announcements. TTAccessible is a from-scratch alternative that puts screen reader users first.
+The official TeamTalk Qt client on Mac has significant accessibility issues — broken navigation, unresponsive context menus, audio crackling, and sluggish VoiceOver announcements. tt-Accessible is a from-scratch alternative that puts screen reader users first.
 
 ## Features
 
@@ -87,7 +87,7 @@ The app is signed with a Developer ID certificate and notarized by Apple, so no 
 
 If you already use TeamTalk on your Mac, you can import your saved servers:
 
-1. Open TTAccessible
+1. Open tt-Accessible
 2. Go to **Server > Import TeamTalk Servers…**
 3. Select your `TeamTalk5.ini` file (the app navigates to the right folder automatically)
 

@@ -168,8 +168,8 @@ extension TeamTalkConnectionController {
             let prefersOutputDevice = !self.preferencesStore.preferences.preferredOutputDevice.usesNoOutput
             if (hadOutput || prefersOutputDevice), let instance = self.instance {
                 do {
-                    // Reopens the virtual output + muxed event; the render engine
-                    // restarts on the next muxed block (gain/mute reapplied inside).
+                    // Reopens the virtual output + muxed event and starts the render
+                    // engine directly (gain/mute reapplied inside).
                     try self.ensureDirectOutputAudioReadyLocked(instance: instance)
                 } catch {
                     AudioLogger.log("restartSoundSystem: output re-open failed — %@", error.localizedDescription)
@@ -237,8 +237,13 @@ extension TeamTalkConnectionController {
                 || preferences.preferredOutputDevice != self.appliedOutputPreference
             let inputChanged = self.appliedInputPreference == nil
                 || preferences.preferredInputDevice != self.appliedInputPreference
+            // Microphone processing (AEC / noise-suppression mode / channel preset)
+            // changed without a device change — the capture engine must be rebuilt so
+            // the WebRTC processor is recreated with the new flags, otherwise the change
+            // only takes effect after the user manually stops & restarts transmission.
+            let micProcessingChanged = self.advancedMicrophoneProcessingChangedLocked(preferences: preferences)
 
-            guard outputChanged || inputChanged else {
+            guard outputChanged || inputChanged || micProcessingChanged else {
                 self.appliedOutputPreference = preferences.preferredOutputDevice
                 self.appliedInputPreference = preferences.preferredInputDevice
                 DispatchQueue.main.async { completion(.success(())) }
@@ -249,7 +254,7 @@ extension TeamTalkConnectionController {
                 try self.reinitializeAudioDevicesLocked(
                     instance: instance,
                     preferences: preferences,
-                    reinitInput: inputChanged,
+                    reinitInput: inputChanged || micProcessingChanged,
                     reinitOutput: outputChanged
                 )
                 self.captureAudioRoutingSnapshotLocked()
@@ -418,7 +423,8 @@ extension TeamTalkConnectionController {
                 preset: effectivePreferences.preset,
                 inputGainDB: preferencesStore.preferences.inputGainDB,
                 targetFormat: targetFormat,
-                echoCancellationEnabled: aecEnabled
+                echoCancellationEnabled: aecEnabled,
+                noiseSuppressionEnabled: effectivePreferences.noiseSuppressionEnabled
             )
             try ensureTeamTalkVirtualInputReadyLocked(instance: instance)
             try ensureDirectOutputAudioReadyLocked(instance: instance)
@@ -426,6 +432,7 @@ extension TeamTalkConnectionController {
             advancedMicrophoneTargetFormat = targetFormat
             inputAudioReady = true
             appliedInputPreference = preferencesStore.preferences.preferredInputDevice
+            appliedAdvancedInputAudio = effectivePreferences
             lastAudioWarningMessage = nil
 
             // Monitor sample rate changes on the active input device.
@@ -587,6 +594,9 @@ extension TeamTalkConnectionController {
         startOutputRenderEngineLocked()
         // Enable per-user audio block events for whoever is already in our channel.
         refreshPerUserAudioEventsLocked(instance: instance)
+        // Re-arm our own media subscription if a stream is already active (e.g. the
+        // output path was (re)opened mid-stream after a reconnect).
+        refreshLocalMediaAudioEventLocked(instance: instance)
         AudioLogger.log("ensureDirectOutputAudioReady: virtual output ready")
     }
 
@@ -634,6 +644,29 @@ extension TeamTalkConnectionController {
     /// Reserved mixer key for the local "hear myself" monitor (negative, so it
     /// never collides with real user IDs or media keys, both positive).
     var localMonitorEngineKey: Int32 { -1 }
+
+    /// Reserved mixer key for our OWN streamed media file, so the local user hears
+    /// what they broadcast. Negative for the same no-collision reason.
+    var localMediaEngineKey: Int32 { -2 }
+
+    /// Subscribe (or unsubscribe) to our OWN media-file stream so the local user
+    /// hears the media they broadcast into the channel. The SDK delivers this on
+    /// TT_LOCAL_USERID + STREAMTYPE_MEDIAFILE_AUDIO. Voice is intentionally never
+    /// self-monitored here — "hear myself" handles that separately.
+    func refreshLocalMediaAudioEventLocked(instance: UnsafeMutableRawPointer) {
+        let shouldEnable = outputAudioReady && mediaStreamingActive
+        guard shouldEnable != localMediaAudioEnabled else { return }
+        let media = UInt32(STREAMTYPE_MEDIAFILE_AUDIO.rawValue)
+        if shouldEnable {
+            TT_EnableAudioBlockEvent(instance, TT_LOCAL_USERID, media, 1)
+            AudioLogger.log("local media: subscribed to own media stream for local playback")
+        } else {
+            TT_EnableAudioBlockEvent(instance, TT_LOCAL_USERID, media, 0)
+            outputRenderEngine.removeUser(localMediaEngineKey)
+            AudioLogger.log("local media: unsubscribed from own media stream")
+        }
+        localMediaAudioEnabled = shouldEnable
+    }
 
     /// Reconcile per-user audio block events with the users currently in our
     /// channel: enable for newly-present remote users, disable + drop for users
@@ -695,13 +728,20 @@ extension TeamTalkConnectionController {
             return
         }
 
+        if source == TT_LOCAL_USERID {
+            // Our own streamed media file, delivered so we hear what we broadcast.
+            // It's burstier than network audio, so it uses the deeper localMedia buffer.
+            enqueueUserAudioBlockLocked(instance: instance, userID: TT_LOCAL_USERID, streamType: STREAMTYPE_MEDIAFILE_AUDIO, engineKey: localMediaEngineKey, profile: .localMedia)
+            return
+        }
+
         let myUserID = TT_GetMyUserID(instance)
         guard source > 0, source != myUserID else { return }
         enqueueUserAudioBlockLocked(instance: instance, userID: source, streamType: STREAMTYPE_VOICE, engineKey: source)
         enqueueUserAudioBlockLocked(instance: instance, userID: source, streamType: STREAMTYPE_MEDIAFILE_AUDIO, engineKey: outputMediaSourceKey(source))
     }
 
-    private func enqueueUserAudioBlockLocked(instance: UnsafeMutableRawPointer, userID: Int32, streamType: StreamType, engineKey: Int32) {
+    private func enqueueUserAudioBlockLocked(instance: UnsafeMutableRawPointer, userID: Int32, streamType: StreamType, engineKey: Int32, profile: OutputSourceBufferProfile = .network) {
         guard let block = TT_AcquireUserAudioBlock(instance, UInt32(streamType.rawValue), userID) else { return }
         defer { TT_ReleaseUserAudioBlock(instance, block) }
         let frames = Int(block.pointee.nSamples)
@@ -715,7 +755,8 @@ extension TeamTalkConnectionController {
         outputRenderEngine.enqueueUser(
             engineKey,
             pcm: pcm,
-            frames: frames, channels: channels, sampleRate: Double(sampleRate)
+            frames: frames, channels: channels, sampleRate: Double(sampleRate),
+            profile: profile
         )
     }
 
@@ -730,8 +771,12 @@ extension TeamTalkConnectionController {
                 TT_EnableAudioBlockEvent(instance, userID, media, 0)
             }
             TT_EnableAudioBlockEvent(instance, TT_MUXED_USERID, voice, 0)
+            if localMediaAudioEnabled {
+                TT_EnableAudioBlockEvent(instance, TT_LOCAL_USERID, media, 0)
+            }
         }
         perUserAudioEnabled.removeAll()
+        localMediaAudioEnabled = false
         perUserAudioNeedsRefresh = false
     }
 
@@ -750,6 +795,7 @@ extension TeamTalkConnectionController {
         _ = TT_InsertAudioBlock(instance, nil)
         inputAudioReady = false
         advancedMicrophoneTargetFormat = nil
+        appliedAdvancedInputAudio = nil
     }
 
     @available(macOS 14.2, *)
@@ -783,6 +829,18 @@ extension TeamTalkConnectionController {
 
         teamTalkVirtualInputReady = true
         AudioLogger.log("ensureTeamTalkVirtualInputReady: virtual input ready")
+    }
+
+    /// Whether the microphone processing preferences (AEC/noise-suppression mode or
+    /// channel preset) for the currently-active input device differ from what the
+    /// running capture engine was built with. Returns false when no engine is live.
+    func advancedMicrophoneProcessingChangedLocked(preferences: AppPreferences) -> Bool {
+        guard inputAudioReady || isAnyMicrophoneEngineRunning,
+              let applied = appliedAdvancedInputAudio,
+              let deviceInfo = InputAudioDeviceResolver.resolveCurrentInputDevice(for: preferences.preferredInputDevice) else {
+            return false
+        }
+        return effectiveMicrophoneProcessingPreferencesLocked(for: deviceInfo) != applied
     }
 
     func effectiveMicrophoneProcessingPreferencesLocked(
@@ -859,7 +917,8 @@ extension TeamTalkConnectionController {
                     pcm: pcm,
                     frames: Int(chunk.sampleCount),
                     channels: Int(chunk.channels),
-                    sampleRate: Double(chunk.sampleRate)
+                    sampleRate: Double(chunk.sampleRate),
+                    profile: .lowLatency
                 )
             }
         }
@@ -1195,6 +1254,14 @@ extension TeamTalkConnectionController {
         let maxVolume = Double(SOUND_VOLUME_MAX.rawValue)
         let pct = 50 + 50 * (log(v / defaultVolume) / log(maxVolume / defaultVolume))
         return Int(min(max(pct.rounded(), 0), 100))
+    }
+
+    /// Stable per-server scope used to namespace stored per-user volumes (issue #24).
+    /// Host:port identifies the physical server, so it is shared correctly across
+    /// duplicate saved entries that point to the same server. Host is lowercased for
+    /// case-insensitive matching.
+    nonisolated static func serverVolumeScope(for record: SavedServerRecord) -> String {
+        "\(record.host.lowercased()):\(record.tcpPort)"
     }
 
     nonisolated static func formatGainDB(_ value: Double) -> String {

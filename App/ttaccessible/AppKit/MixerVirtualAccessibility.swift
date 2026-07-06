@@ -78,74 +78,15 @@ final class VirtualControlView: NSView {
     let config: Config
     private var announceToggle = false
 
-    // Per-instance accessibility identifier so the keyboard handler can map "the element
-    // VoiceOver reports as focused" back to this NSView via a static registry.
-    nonisolated(unsafe) private static var nextRegistryId: UInt64 = 0
-    nonisolated(unsafe) private static var registry: [String: WeakBox] = [:]
-    private final class WeakBox { weak var view: VirtualControlView? }
-    let registryId: String
-
     init(config: Config) {
         self.config = config
-        Self.nextRegistryId &+= 1
-        self.registryId = "vctrl-\(Self.nextRegistryId)"
         super.init(frame: .zero)
-        setAccessibilityIdentifier(registryId)
-        let box = WeakBox()
-        box.view = self
-        Self.registry[registryId] = box
     }
-
-    deinit { Self.registry.removeValue(forKey: registryId) }
-
-    override func accessibilityIdentifier() -> String { registryId }
-
-    /// Resolve "the virtual control VoiceOver thinks is focused" to its VirtualControlView.
-    /// Walks the AX parent chain of the focused element looking for a "vctrl-N" identifier.
-    @MainActor
-    static func findFocusedControl() -> VirtualControlView? {
-        let systemWide = AXUIElementCreateSystemWide()
-        var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
-              let value = focused,
-              CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-        var current: AXUIElement? = unsafeBitCast(value, to: AXUIElement.self)
-        for _ in 0..<6 {
-            guard let elem = current else { break }
-            var ident: CFTypeRef?
-            if AXUIElementCopyAttributeValue(elem, kAXIdentifierAttribute as CFString, &ident) == .success,
-               let id = ident as? String,
-               id.hasPrefix("vctrl-"),
-               let view = registry[id]?.view {
-                return view
-            }
-            var parent: CFTypeRef?
-            if AXUIElementCopyAttributeValue(elem, kAXParentAttribute as CFString, &parent) == .success,
-               let p = parent,
-               CFGetTypeID(p) == AXUIElementGetTypeID() {
-                current = unsafeBitCast(p, to: AXUIElement.self)
-            } else {
-                break
-            }
-        }
-        return nil
-    }
-
-    nonisolated(unsafe) static weak var currentFocused: VirtualControlView?
 
     required init?(coder: NSCoder) { nil }
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { true }
-
-    override func setAccessibilityFocused(_ focused: Bool) {
-        super.setAccessibilityFocused(focused)
-        if focused {
-            Self.currentFocused = self
-        } else if Self.currentFocused === self {
-            Self.currentFocused = nil
-        }
-    }
 
     // MARK: Accessibility identity
 
@@ -160,8 +101,8 @@ final class VirtualControlView: NSView {
 
     override func accessibilityRoleDescription() -> String? {
         switch config {
-        case .slider: return "slider"
-        case .toggle: return "button"
+        case .slider: return L10n.text("mixer.control.slider.roleDescription")
+        case .toggle: return L10n.text("mixer.control.button.roleDescription")
         }
     }
 
@@ -331,7 +272,7 @@ final class VirtualStripView: NSView {
 
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
-    override func accessibilityRoleDescription() -> String? { "channel strip" }
+    override func accessibilityRoleDescription() -> String? { L10n.text("mixer.strip.roleDescription") }
     override func accessibilityIdentifier() -> String { "channel-strip-\(stripId)" }
     override func accessibilityLabel() -> String? { MainActor.assumeIsolated { labelProvider() } }
     override func accessibilityChildren() -> [Any]? { childElements.isEmpty ? nil : childElements }

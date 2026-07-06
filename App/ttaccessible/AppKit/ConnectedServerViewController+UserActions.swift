@@ -442,14 +442,12 @@ extension ConnectedServerViewController {
     }
 }
 
-/// A label whose text stays on screen but is never exposed to VoiceOver. NSTextField
-/// derives `isAccessibilityElement` from its content, so `setAccessibilityElement(false)`
-/// doesn't reliably suppress it (notably inside an NSAlert, which reads accessory static
-/// text). Hard-overriding the getter does.
 /// Right-aligned percentage readout that DRAWS its text rather than using an NSTextField,
-/// so it stays visible for sighted users but offers VoiceOver no text to read. An NSAlert
-/// reads the value of descendant NSTextFields in its accessory even when they aren't
-/// accessibility elements; a plain drawing view sidesteps that entirely.
+/// so it stays visible for sighted users but offers VoiceOver no text to read. NSTextField
+/// derives `isAccessibilityElement` from its content, so `setAccessibilityElement(false)`
+/// doesn't reliably suppress it inside an NSAlert (which reads its accessory's descendant
+/// NSTextFields even when they aren't accessibility elements). A plain drawing view that
+/// hard-overrides `isAccessibilityElement()` to `false` sidesteps that entirely.
 private final class PercentValueView: NSView {
     var text: String { didSet { needsDisplay = true; invalidateIntrinsicContentSize() } }
 

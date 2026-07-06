@@ -19,6 +19,13 @@ Symbol-driven (finds _IsFormatSupported via nm per arch) so it survives SDK vers
 bumps where the offset moves. Idempotent: re-running is a no-op. Patches every arch
 slice (arm64 + x86_64) in the universal dylib, then re-signs adhoc.
 
+FAILS LOUDLY: before overwriting, the bytes at the symbol are checked against an
+allowlist of the known-good unpatched prologue (per arch). If a future SDK keeps the
+symbol but emits a different prologue, those bytes won't match -> the script aborts
+(exit 1) instead of clobbering an unknown instruction stream and shipping a corrupt
+dylib. The file-offset math (off = slice_off + symbol_vmaddr) is only valid when the
+__TEXT segment has vmaddr==0 and fileoff==0, so that is asserted explicitly per arch.
+
 Usage: scripts/patch-sdk-portaudio.py [path/to/libTeamTalk5.dylib]
 """
 import subprocess, sys, os, struct
@@ -27,6 +34,13 @@ import subprocess, sys, os, struct
 STUBS = {
     "arm64":  bytes([0x00,0x00,0x80,0x52, 0xc0,0x03,0x5f,0xd6]),  # mov w0,#0 ; ret
     "x86_64": bytes([0x31,0xc0, 0xc3]),                            # xor eax,eax ; ret
+}
+# Allowlist of the known-good UNPATCHED prologue bytes the stub overwrites (same length
+# as the stub, per arch). Captured from the BearWare v5.22a universal build. A new SDK
+# may legitimately add entries here, but a SILENT mismatch must never be patched over.
+ORIGINAL_PROLOGUES = {
+    "arm64":  [bytes([0xff,0x43,0x01,0xd1, 0xe9,0x23,0x02,0x6d])],  # sub sp,sp,#0x50 ; stp d9,d8,[sp,#0x20]
+    "x86_64": [bytes([0x55, 0x48,0x89])],                           # push rbp ; (mov rbp,rsp)
 }
 SYMBOL = "_IsFormatSupported"
 
@@ -54,6 +68,25 @@ def symbol_vmaddr(path, arch):
             return int(parts[0], 16)
     return None
 
+def text_segment_origin(path, arch):
+    """(__TEXT.vmaddr, __TEXT.fileoff) for the given arch slice.
+
+    The offset math `off = slice_off + symbol_vmaddr` is only correct when both are 0
+    (so a symbol's vmaddr equals its offset inside the slice). Returns them so the
+    caller can assert that assumption rather than trusting it blindly."""
+    out = subprocess.check_output(["otool", "-arch", arch, "-l", path], text=True, stderr=subprocess.DEVNULL)
+    in_text, vmaddr, fileoff = False, None, None
+    for line in out.splitlines():
+        s = line.strip()
+        if s.startswith("segname "):
+            in_text = (s.split()[1] == "__TEXT")
+        elif in_text and s.startswith("vmaddr ") and vmaddr is None:
+            vmaddr = int(s.split()[1], 16)
+        elif in_text and s.startswith("fileoff ") and fileoff is None:
+            fileoff = int(s.split()[1])
+            break
+    return vmaddr, fileoff
+
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
         os.path.dirname(__file__), "..", "Vendor", "TeamTalk", "libTeamTalk5.dylib")
@@ -71,10 +104,26 @@ def main():
         vm = symbol_vmaddr(path, arch)
         if vm is None:
             print(f"  {arch}: {SYMBOL} not found, skipping"); continue
-        off = slice_off + vm  # __TEXT.vmaddr is 0, fileoff 0 -> file offset = slice + vmaddr
+        # off = slice_off + symbol_vmaddr is only valid when __TEXT is mapped at vmaddr 0
+        # with fileoff 0. Assert it instead of assuming it.
+        tvm, tfo = text_segment_origin(path, arch)
+        if tvm != 0 or tfo != 0:
+            print(f"error: {arch} __TEXT vmaddr=0x{tvm:X} fileoff={tfo}, expected 0/0 — "
+                  f"offset math is invalid for this layout. Aborting.", file=sys.stderr)
+            sys.exit(1)
+        off = slice_off + vm  # __TEXT.vmaddr==0, fileoff==0 -> file offset = slice + vmaddr
         cur = bytes(data[off:off+len(stub)])
         if cur == stub:
             skipped.append(arch); continue
+        # Fail loudly rather than clobber an unknown prologue (e.g. a future SDK whose
+        # IsFormatSupported keeps its symbol but changes its instructions).
+        if cur not in ORIGINAL_PROLOGUES.get(arch, []):
+            print(f"error: {arch} {SYMBOL} prologue at 0x{off:X} is {cur.hex()}, which is "
+                  f"neither the patched stub nor a known unpatched prologue. The SDK build "
+                  f"likely changed — refusing to patch (would corrupt the dylib). Update "
+                  f"ORIGINAL_PROLOGUES['{arch}'] after verifying the new prologue by hand.",
+                  file=sys.stderr)
+            sys.exit(1)
         data[off:off+len(stub)] = stub
         patched.append(f"{arch}@0x{off:X}")
 

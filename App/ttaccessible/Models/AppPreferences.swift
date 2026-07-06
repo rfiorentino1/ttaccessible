@@ -24,6 +24,17 @@ struct AppPreferences: Codable, Equatable {
         case pushToTalk
     }
 
+    /// How per-user volume/stereo/pan adjustments are remembered (issue #24).
+    /// - off: never remembered; reconnecting resets everyone to 50% (like the
+    ///   official client).
+    /// - session: remembered while the app runs, discarded on quit.
+    /// - persistent: remembered across launches, scoped per server.
+    enum UserVolumeMemoryMode: String, Codable, CaseIterable {
+        case off
+        case session
+        case persistent
+    }
+
     enum SavedServersSortField: String, Codable, CaseIterable {
         case manual
         case name
@@ -113,6 +124,7 @@ struct AppPreferences: Codable, Equatable {
         case microphoneMode
         case pushToTalkBeepEnabled
         case videoPanelExpanded
+        case userVolumeMemoryMode
     }
 
     var defaultNickname: String
@@ -174,6 +186,7 @@ struct AppPreferences: Codable, Equatable {
     var microphoneMode: MicrophoneMode
     var pushToTalkBeepEnabled: Bool
     var videoPanelExpanded: Bool
+    var userVolumeMemoryMode: UserVolumeMemoryMode
     init(
         defaultNickname: String = AppPreferences.defaultNicknameFromAccount(),
         defaultStatusMessage: String = "",
@@ -230,7 +243,8 @@ struct AppPreferences: Codable, Equatable {
         includeBetaUpdates: Bool = false,
         microphoneMode: MicrophoneMode = .alwaysOn,
         pushToTalkBeepEnabled: Bool = true,
-        videoPanelExpanded: Bool = true
+        videoPanelExpanded: Bool = true,
+        userVolumeMemoryMode: UserVolumeMemoryMode = .persistent
     ) {
         self.defaultNickname = defaultNickname
         self.defaultStatusMessage = defaultStatusMessage
@@ -288,6 +302,7 @@ struct AppPreferences: Codable, Equatable {
         self.microphoneMode = microphoneMode
         self.pushToTalkBeepEnabled = pushToTalkBeepEnabled
         self.videoPanelExpanded = videoPanelExpanded
+        self.userVolumeMemoryMode = userVolumeMemoryMode
     }
 
     nonisolated static func clampGainDB(_ value: Double) -> Double {
@@ -400,6 +415,7 @@ struct AppPreferences: Codable, Equatable {
         microphoneMode = try container.decodeIfPresent(MicrophoneMode.self, forKey: .microphoneMode) ?? .alwaysOn
         pushToTalkBeepEnabled = try container.decodeIfPresent(Bool.self, forKey: .pushToTalkBeepEnabled) ?? true
         videoPanelExpanded = try container.decodeIfPresent(Bool.self, forKey: .videoPanelExpanded) ?? true
+        userVolumeMemoryMode = try container.decodeIfPresent(UserVolumeMemoryMode.self, forKey: .userVolumeMemoryMode) ?? .persistent
     }
 
     func encode(to encoder: Encoder) throws {
@@ -460,6 +476,7 @@ struct AppPreferences: Codable, Equatable {
         try container.encode(microphoneMode, forKey: .microphoneMode)
         try container.encode(pushToTalkBeepEnabled, forKey: .pushToTalkBeepEnabled)
         try container.encode(videoPanelExpanded, forKey: .videoPanelExpanded)
+        try container.encode(userVolumeMemoryMode, forKey: .userVolumeMemoryMode)
     }
 
     func isSubscriptionEnabledByDefault(_ option: UserSubscriptionOption) -> Bool {

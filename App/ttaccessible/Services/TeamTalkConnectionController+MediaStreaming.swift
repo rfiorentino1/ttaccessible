@@ -101,6 +101,8 @@ extension TeamTalkConnectionController {
                 }
 
                 self.mediaStreamingActive = true
+                // Subscribe to our own media stream so we hear what we broadcast.
+                self.refreshLocalMediaAudioEventLocked(instance: instance)
                 self.mediaStreamingPath = resolved.path
                 self.mediaStreamingStartedHistoryLogged = false
                 self.mediaStreamingSeekedWhilePaused = false
@@ -164,6 +166,8 @@ extension TeamTalkConnectionController {
         mediaStreamingSecurityScopedURL?.stopAccessingSecurityScopedResource()
         mediaStreamingSecurityScopedURL = nil
         mediaStreamingActive = false
+        // Drop our own media subscription now that we're no longer broadcasting.
+        refreshLocalMediaAudioEventLocked(instance: instance)
         mediaStreamingPath = nil
         mediaStreamingStartedHistoryLogged = false
         mediaStreamingSeekedWhilePaused = false

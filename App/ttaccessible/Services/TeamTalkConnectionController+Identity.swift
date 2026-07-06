@@ -23,7 +23,7 @@ extension TeamTalkConnectionController {
 
             let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
             // An empty nickname falls back to the same resolution used at connection time
-            // (saved-server nickname → default preference → "TTAccessible") instead of being
+            // (saved-server nickname → default preference → "tt-Accessible") instead of being
             // rejected, so clearing the field returns to the default nickname.
             let resolved = trimmed.isEmpty ? self.effectiveNickname(for: record) : trimmed
 

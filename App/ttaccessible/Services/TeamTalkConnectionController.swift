@@ -135,6 +135,10 @@ final class TeamTalkConnectionController {
     // when only the input changed, and vice versa).
     var appliedInputPreference: AudioDevicePreference?
     var appliedOutputPreference: AudioDevicePreference?
+    /// The microphone processing preferences (preset + AEC/noise-suppression mode)
+    /// currently live in the running capture engine. Used to detect a processing-only
+    /// change (same device) so we can rebuild the engine without a device switch.
+    var appliedAdvancedInputAudio: AdvancedInputAudioPreferences?
     var voiceTransmissionEnabled = false
     var pushToTalkPressed = false
     var pushToTalkShortcutResolver: (() -> Bool)?
@@ -216,6 +220,9 @@ final class TeamTalkConnectionController {
     /// Remote user IDs we currently have per-user audio block events enabled for
     /// (reconciled with channel membership; the local user is never included).
     var perUserAudioEnabled: Set<Int32> = []
+    /// Whether we currently subscribe to our OWN media-file stream so the local
+    /// user hears the media they broadcast (TT_LOCAL_USERID + media block events).
+    var localMediaAudioEnabled = false
     /// Set when channel membership changes; the message loop reconciles per-user
     /// audio events on its next tick.
     var perUserAudioNeedsRefresh = false
@@ -229,6 +236,14 @@ final class TeamTalkConnectionController {
     init(preferencesStore: AppPreferencesStore) {
         self.preferencesStore = preferencesStore
         queue.setSpecific(key: queueKey, value: ())
+        userVolumeStore.setMemoryMode(preferencesStore.preferences.userVolumeMemoryMode)
+    }
+
+    /// Push the per-user volume memory mode (off / session / persistent) to the store.
+    /// Thread-safe; call it live when the preference changes so the mode takes effect
+    /// without needing a reconnect.
+    func updateUserVolumeMemoryMode(_ mode: AppPreferences.UserVolumeMemoryMode) {
+        userVolumeStore.setMemoryMode(mode)
     }
 
     func passwordForChannel(_ channelID: Int32) -> String {

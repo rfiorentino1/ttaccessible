@@ -353,6 +353,10 @@ final class AppPreferencesStore: ObservableObject {
         mutate { $0.pushToTalkBeepEnabled = enabled }
     }
 
+    func mutateUserVolumeMemoryMode(_ mode: AppPreferences.UserVolumeMemoryMode) {
+        mutate { $0.userVolumeMemoryMode = mode }
+    }
+
     func updateDisabledSoundEvents(_ disabled: Set<NotificationSound>) {
         mutate { $0.disabledSoundEvents = disabled }
         SoundPlayer.shared.disabledSounds = disabled
@@ -740,12 +744,22 @@ final class AudioPreferencesStore: ObservableObject {
         }
     }
 
-    func updateEchoCancellationEnabled(_ enabled: Bool) {
-        advancedSettingsStore.updateEchoCancellationEnabled(enabled)
+    func updateProcessingMode(_ mode: MicrophoneProcessingMode) {
+        advancedSettingsStore.updateProcessingMode(mode)
     }
 
     func updateMicrophoneMode(_ mode: AppPreferences.MicrophoneMode) {
         rootStore.mutateMicrophoneMode(mode)
+    }
+
+    var userVolumeMemoryMode: AppPreferences.UserVolumeMemoryMode {
+        rootStore.preferences.userVolumeMemoryMode
+    }
+
+    func updateUserVolumeMemoryMode(_ mode: AppPreferences.UserVolumeMemoryMode) {
+        rootStore.mutateUserVolumeMemoryMode(mode)
+        // Apply live so a change takes effect without a reconnect.
+        connectionController.updateUserVolumeMemoryMode(mode)
     }
 
     func updatePushToTalkBeepEnabled(_ enabled: Bool) {

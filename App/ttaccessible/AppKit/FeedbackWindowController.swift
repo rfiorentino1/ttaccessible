@@ -220,11 +220,22 @@ private enum FeedbackDiagnostics {
             AppBackendClient.ReportSection(title: "Audio", rows: [
                 ("Périphérique d'entrée", deviceDescription(inputDevice)),
                 ("Périphérique de sortie", deviceDescription(outputDevice)),
-                ("Annulation d'écho", inputProfile.echoCancellationEnabled ? "activée" : "désactivée"),
+                ("Traitement micro", micProcessingDescription(inputProfile.processingMode)),
                 ("Préréglage de canaux", inputProfile.preset.identifier),
                 ("Mode micro", preferences.microphoneMode.rawValue),
             ]),
         ]
+    }
+
+    private static func micProcessingDescription(_ mode: MicrophoneProcessingMode) -> String {
+        switch mode {
+        case .none:
+            return "aucun"
+        case .noiseSuppression:
+            return "réduction de bruit"
+        case .echoAndNoise:
+            return "annulation d'écho + réduction de bruit"
+        }
     }
 
     private static func deviceDescription(_ device: AudioDevicePreference) -> String {

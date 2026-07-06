@@ -101,7 +101,17 @@ Sparkle shows localized release notes during updates: `build.sh` renders
 `<sparkle:releaseNotesLink xml:lang="fr">` automatically. French users see the
 French notes; everyone else falls back to the English `.html`.
 
-- Translate `RELEASE_NOTES.md` into `RELEASE_NOTES.fr.md` at the repo root.
+- **Write `RELEASE_NOTES.fr.md` from scratch in idiomatic French — do NOT translate
+  the English clause-by-clause.** Re-express each change the way a French native
+  would phrase it. A word-for-word calque reads as jarring translationese when
+  VoiceOver speaks it aloud, and Mathieu *will* reject it ("c'est tout sauf
+  naturel"). Read each sentence aloud: if it sounds like translated English,
+  rewrite it.
+  - Calques that have been rejected before: "une passe ciblée" (a focused pass) →
+    "entièrement consacrée à…"; "contribuée par" (contributed by) → "grâce à la
+    contribution de…"; "nom attaché" (run-together name) → "écrit d'un seul
+    tenant"; "interrupteurs par son" (per-sound switches) → "la liste des sons".
+  - Lead with the user-visible effect, same tone rules as the English (A4).
 - Use **vouvoiement** ("vous", never "tu") — same rule as app-shipped French strings.
 - Keep the structure and the same `.zip` filename in the Download section.
 - This file is **only** for the in-app Sparkle dialog. The GitHub release body and

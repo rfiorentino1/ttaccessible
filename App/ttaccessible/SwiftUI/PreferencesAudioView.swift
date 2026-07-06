@@ -57,23 +57,34 @@ struct PreferencesAudioView: View {
                 }
                 .disabled(store.state.isCatalogLoading)
 
-                // Microphone settings (AEC, channel preset, preview).
+                // Microphone settings (processing mode, channel preset, preview).
                 VStack(alignment: .leading, spacing: 12) {
                     Text(L10n.text("preferences.audio.advanced.title"))
                         .font(.headline)
                         .accessibilityAddTraits(.isHeader)
 
-                    Toggle(isOn: Binding(
-                        get: { store.advancedPreferences.echoCancellationEnabled },
-                        set: { store.updateEchoCancellationEnabled($0) }
-                    )) {
-                        Text(L10n.text("preferences.audio.advanced.echoCancellation"))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L10n.text("preferences.audio.advanced.processing"))
                             .accessibilityHidden(true)
+                        Picker(
+                            "",
+                            selection: Binding(
+                                get: { store.advancedPreferences.processingMode },
+                                set: { store.updateProcessingMode($0) }
+                            )
+                        ) {
+                            Text(L10n.text("preferences.audio.advanced.processing.none"))
+                                .tag(MicrophoneProcessingMode.none)
+                            Text(L10n.text("preferences.audio.advanced.processing.noiseSuppression"))
+                                .tag(MicrophoneProcessingMode.noiseSuppression)
+                            Text(L10n.text("preferences.audio.advanced.processing.echoAndNoise"))
+                                .tag(MicrophoneProcessingMode.echoAndNoise)
+                        }
+                        .labelsHidden()
+                        .accessibilityLabel(L10n.text("preferences.audio.advanced.processing"))
                     }
-                    .toggleStyle(.switch)
-                    .accessibilityLabel(L10n.text("preferences.audio.advanced.echoCancellation"))
 
-                    Text(L10n.text("preferences.audio.advanced.echoCancellation.help"))
+                    Text(L10n.text("preferences.audio.advanced.processing.help"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -106,6 +117,8 @@ struct PreferencesAudioView: View {
                 }
 
                 pushToTalkSection
+
+                volumeMemorySection
 
                 if let feedbackMessage = store.state.advancedFeedbackMessage, feedbackMessage.isEmpty == false {
                     Text(feedbackMessage)
@@ -153,6 +166,41 @@ struct PreferencesAudioView: View {
 
     private func persistAndApply() {
         store.updateSelectedDevices(inputID: selectedInputID, outputID: selectedOutputID)
+    }
+
+    @ViewBuilder
+    private var volumeMemorySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("preferences.audio.volumeMemory.section"))
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.text("preferences.audio.volumeMemory.label"))
+                    .accessibilityHidden(true)
+                Picker(
+                    "",
+                    selection: Binding(
+                        get: { store.userVolumeMemoryMode },
+                        set: { store.updateUserVolumeMemoryMode($0) }
+                    )
+                ) {
+                    Text(L10n.text("preferences.audio.volumeMemory.off"))
+                        .tag(AppPreferences.UserVolumeMemoryMode.off)
+                    Text(L10n.text("preferences.audio.volumeMemory.session"))
+                        .tag(AppPreferences.UserVolumeMemoryMode.session)
+                    Text(L10n.text("preferences.audio.volumeMemory.persistent"))
+                        .tag(AppPreferences.UserVolumeMemoryMode.persistent)
+                }
+                .labelsHidden()
+                .pickerStyle(.radioGroup)
+                .accessibilityLabel(L10n.text("preferences.audio.volumeMemory.label"))
+            }
+
+            Text(L10n.text("preferences.audio.volumeMemory.help"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder

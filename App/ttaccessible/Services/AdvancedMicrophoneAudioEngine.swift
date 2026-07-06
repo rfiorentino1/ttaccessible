@@ -22,13 +22,15 @@ struct AdvancedMicrophoneAudioConfiguration: Equatable {
     var inputGainDB: Double
     let targetFormat: AdvancedMicrophoneAudioTargetFormat
     var echoCancellationEnabled: Bool
+    var noiseSuppressionEnabled: Bool
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.device == rhs.device &&
         lhs.preset == rhs.preset &&
         lhs.inputGainDB == rhs.inputGainDB &&
         lhs.targetFormat == rhs.targetFormat &&
-        lhs.echoCancellationEnabled == rhs.echoCancellationEnabled
+        lhs.echoCancellationEnabled == rhs.echoCancellationEnabled &&
+        lhs.noiseSuppressionEnabled == rhs.noiseSuppressionEnabled
     }
 }
 
@@ -255,7 +257,8 @@ final class AdvancedMicrophoneAudioEngine {
                 preset: configuration.preset,
                 inputGainDB: configuration.inputGainDB,
                 targetFormat: effectiveTargetFormat,
-                echoCancellationEnabled: configuration.echoCancellationEnabled
+                echoCancellationEnabled: configuration.echoCancellationEnabled,
+                noiseSuppressionEnabled: configuration.noiseSuppressionEnabled
             )
             currentConfiguration = stored
             engine = newEngine
@@ -265,11 +268,15 @@ final class AdvancedMicrophoneAudioEngine {
             return activeStreamID
         }
 
-        // Create WebRTC AEC3 echo canceller if enabled.
-        if configuration.echoCancellationEnabled {
+        // Create the WebRTC audio processor when echo cancellation and/or noise
+        // suppression is requested. Noise suppression can run on its own (no reference
+        // signal needed); the echo canceller always implies noise suppression.
+        if configuration.echoCancellationEnabled || configuration.noiseSuppressionEnabled {
             let aecConfig = EchoCanceller.Configuration(
                 sampleRate: Int(sampleRate),
-                channels: max(configuration.targetFormat.channels, 1)
+                channels: max(configuration.targetFormat.channels, 1),
+                echoCancellationEnabled: configuration.echoCancellationEnabled,
+                noiseSuppressionEnabled: configuration.noiseSuppressionEnabled
             )
             echoCanceller = EchoCanceller(configuration: aecConfig)
         } else {
@@ -461,7 +468,8 @@ final class AdvancedMicrophoneAudioEngine {
                 preset: configuration.preset,
                 inputGainDB: configuration.inputGainDB,
                 targetFormat: effectiveTargetFormat,
-                echoCancellationEnabled: configuration.echoCancellationEnabled
+                echoCancellationEnabled: configuration.echoCancellationEnabled,
+                noiseSuppressionEnabled: configuration.noiseSuppressionEnabled
             )
             currentConfiguration = stored
             encoderOutputFormat = encoderFormat
@@ -480,11 +488,15 @@ final class AdvancedMicrophoneAudioEngine {
             return activeStreamID
         }
 
-        // Create WebRTC AEC3 echo canceller if enabled.
-        if configuration.echoCancellationEnabled {
+        // Create the WebRTC audio processor when echo cancellation and/or noise
+        // suppression is requested. Noise suppression can run on its own (no reference
+        // signal needed); the echo canceller always implies noise suppression.
+        if configuration.echoCancellationEnabled || configuration.noiseSuppressionEnabled {
             let aecConfig = EchoCanceller.Configuration(
                 sampleRate: Int(sampleRate),
-                channels: max(configuration.targetFormat.channels, 1)
+                channels: max(configuration.targetFormat.channels, 1),
+                echoCancellationEnabled: configuration.echoCancellationEnabled,
+                noiseSuppressionEnabled: configuration.noiseSuppressionEnabled
             )
             echoCanceller = EchoCanceller(configuration: aecConfig)
         } else {

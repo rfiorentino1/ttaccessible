@@ -39,6 +39,8 @@ extension TeamTalkConnectionController {
                 }
                 self.instance = instance
                 self.connectedRecord = record
+                self.userVolumeStore.setServerScope(Self.serverVolumeScope(for: record))
+                self.userVolumeStore.setMemoryMode(self.preferencesStore.preferences.userVolumeMemoryMode)
                 self.autoJoinAfterLoginLocked(instance: instance, options: options)
                 try self.applyPostLoginOptionsLocked(instance: instance, options: options)
                 self.applyDefaultSubscriptionPreferencesLocked(instance: instance, preferences: self.preferencesStore.preferences)
@@ -213,6 +215,8 @@ extension TeamTalkConnectionController {
             try ensureOutputAudioReadyLocked(instance: instance)
             self.instance = instance
             self.connectedRecord = record
+            self.userVolumeStore.setServerScope(Self.serverVolumeScope(for: record))
+            self.userVolumeStore.setMemoryMode(self.preferencesStore.preferences.userVolumeMemoryMode)
 
             // Rejoindre le dernier canal si possible
             let shouldRejoinLastChannel = preferencesStore.preferences.rejoinLastChannelOnReconnect
@@ -776,9 +780,9 @@ extension TeamTalkConnectionController {
                             outputAudioReady = false
                         }
                         do {
-                            // Reopens the virtual output + muxed event; the render
-                            // engine restarts on the next muxed block (mute/gain
-                            // are reapplied from prefs inside the ensure path).
+                            // Reopens the virtual output + muxed event and starts the
+                            // render engine directly (mute/gain reapplied from prefs
+                            // inside the ensure path).
                             try ensureDirectOutputAudioReadyLocked(instance: instance)
                         } catch {
                             AudioLogger.log("INTERNAL_ERROR: failed to reopen output — %@", error.localizedDescription)
@@ -862,6 +866,16 @@ extension TeamTalkConnectionController {
                         }
                         if let storedBalance = userVolumeStore.stereoBalance(forUsername: joinedUsername) {
                             _ = TT_SetUserStereo(instance, message.user.nUserID, STREAMTYPE_VOICE, storedBalance.left ? 1 : 0, storedBalance.right ? 1 : 0)
+                        }
+                        // Continuous mixer pan lives in our own render engine (not the SDK),
+                        // so push it here too — otherwise the strip shows the saved pan while
+                        // the user plays centered until the slider is touched. muted:false is
+                        // the engine default; an active SOLO is re-applied right after via the
+                        // coordinator's reapplySolo() on the next session update.
+                        if let storedPan = userVolumeStore.pan(forUsername: joinedUsername) {
+                            let panSettings = OutputUserMixSettings(volume: 1, pan: storedPan, muted: false)
+                            outputRenderEngine.setUserSettings(panSettings, for: message.user.nUserID)
+                            outputRenderEngine.setUserSettings(panSettings, for: outputMediaSourceKey(message.user.nUserID))
                         }
                         applyJitterControlLocked(instance: instance, userID: message.user.nUserID)
                     case CLIENTEVENT_CMD_USER_LEFT:
@@ -956,6 +970,7 @@ extension TeamTalkConnectionController {
 
         instance = nil
         connectedRecord = nil
+        userVolumeStore.setServerScope(nil)
         channelChatHistory = []
         sessionHistory = []
         activeTransferProgress = [:]
@@ -984,6 +999,12 @@ extension TeamTalkConnectionController {
         lastSnapshotPublishAt = 0
         outputAudioReady = false
         inputAudioReady = false
+        // Reset the device-preference dedup state too: the sound devices are closed
+        // above, so on the next connect (which may reuse this warm instance)
+        // applyAudioPreferences must re-initialize them. Leaving these set would let
+        // the `applied == new` dedup guard silently skip re-applying the device.
+        appliedInputPreference = nil
+        appliedOutputPreference = nil
         voiceTransmissionEnabled = false
         masterMuted = false
         hearMyselfEnabled = false
@@ -1147,6 +1168,16 @@ extension TeamTalkConnectionController {
                         }
                         if let storedBalance = userVolumeStore.stereoBalance(forUsername: joinedUsername) {
                             _ = TT_SetUserStereo(instance, message.user.nUserID, STREAMTYPE_VOICE, storedBalance.left ? 1 : 0, storedBalance.right ? 1 : 0)
+                        }
+                        // Continuous mixer pan lives in our own render engine (not the SDK),
+                        // so push it here too — otherwise the strip shows the saved pan while
+                        // the user plays centered until the slider is touched. muted:false is
+                        // the engine default; an active SOLO is re-applied right after via the
+                        // coordinator's reapplySolo() on the next session update.
+                        if let storedPan = userVolumeStore.pan(forUsername: joinedUsername) {
+                            let panSettings = OutputUserMixSettings(volume: 1, pan: storedPan, muted: false)
+                            outputRenderEngine.setUserSettings(panSettings, for: message.user.nUserID)
+                            outputRenderEngine.setUserSettings(panSettings, for: outputMediaSourceKey(message.user.nUserID))
                         }
                         applyJitterControlLocked(instance: instance, userID: message.user.nUserID)
                     case CLIENTEVENT_CMD_USER_UPDATE:

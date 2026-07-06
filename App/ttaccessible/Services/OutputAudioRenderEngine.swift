@@ -47,6 +47,19 @@ struct OutputUserMixSettings: Equatable {
     var muted: Bool = false
 }
 
+/// Buffering profile for a mix source, picked by how its PCM is delivered.
+enum OutputSourceBufferProfile {
+    /// Regularly-clocked real-time source (the local mic "hear myself" monitor):
+    /// minimal buffering for low latency.
+    case lowLatency
+    /// Network-delivered remote user audio: the standard jitter target.
+    case network
+    /// Our OWN decoded media-file stream — burstier than network (the SDK feeds it
+    /// from the file decoder, not a paced network jitter buffer), so it needs a
+    /// deeper prime buffer and a much higher catch-up ceiling to stay smooth.
+    case localMedia
+}
+
 /// Lock-free single-producer / single-consumer ring of interleaved Int16 at the
 /// output device rate. Producer (mix thread) writes `tail`, consumer (RT) writes
 /// `head`; monotonic 64-bit counters index a power-of-two buffer.
@@ -131,7 +144,7 @@ private final class OutputAudioSampleRing {
 }
 
 /// One remote user's decoded PCM, resampled to the device rate and queued for
-/// mixing. Touched only on the TeamTalk serial queue.
+/// mixing. Touched only on `engineQueue` (the feed hops there from the message loop).
 private final class PerUserMixSource {
     private var buffer: ContiguousArray<Int16> = []
     private var head: Int = 0
@@ -383,6 +396,14 @@ final class OutputAudioRenderEngine {
         self.underflowCount = 0
         primedCell.pointee = 0
 
+        // Publish the RT render state written just above (rtPull / rtPullCapacity /
+        // rtPlanePtrs / rtDeviceChannels / currentGain / ring) with a release fence,
+        // paired with the acquire at the top of render(). On the very first start the
+        // AudioOutputUnitStart below is itself a de-facto barrier, but switchDevice
+        // re-runs startImpl on the SAME engine instance — make the happens-before
+        // explicit instead of relying on the AU start internals.
+        ttac_atomic_fence_release()
+
         status = AudioUnitInitialize(au)
         guard status == noErr else { teardownAfterFailedStart(); throw OutputAudioRenderEngineError.startFailed }
         status = AudioOutputUnitStart(au)
@@ -490,7 +511,9 @@ final class OutputAudioRenderEngine {
     // `pcm` is a COPY made by the caller (the SDK audio block is released right after),
     // so we can hop to engineQueue without lifetime concerns. Interleaved, frames*channels.
 
-    func enqueueUser(_ userID: Int32, pcm: [Int16], frames: Int, channels: Int, sampleRate: Double) {
+    /// `profile` selects the buffering target by how this source is delivered (see
+    /// OutputSourceBufferProfile). Defaults to `.network` (remote users).
+    func enqueueUser(_ userID: Int32, pcm: [Int16], frames: Int, channels: Int, sampleRate: Double, profile: OutputSourceBufferProfile = .network) {
         engineQueue.async { [weak self] in
             guard let self, self.isRunning, frames > 0, channels > 0, self.deviceSampleRate > 0 else { return }
 
@@ -498,11 +521,22 @@ final class OutputAudioRenderEngine {
             if let existing = self.userSources[userID], existing.channels == channels {
                 source = existing
             } else {
-                // Reserved negative keys (e.g. the local "hear myself" monitor) want
-                // minimal buffering for low latency; real users get the normal jitter target.
-                let lowLatency = userID < 0
-                let prime = lowLatency ? max(Int(0.010 * self.deviceSampleRate), 32) : self.perUserPrimeFrames
-                let maxF = lowLatency ? max(Int(0.080 * self.deviceSampleRate), prime + 32) : self.perUserMaxFrames
+                let rate = self.deviceSampleRate
+                let prime: Int
+                let maxF: Int
+                switch profile {
+                case .lowLatency:
+                    prime = max(Int(0.010 * rate), 32)
+                    maxF = max(Int(0.080 * rate), prime + 32)
+                case .network:
+                    prime = self.perUserPrimeFrames
+                    maxF = self.perUserMaxFrames
+                case .localMedia:
+                    // Deeper buffer + high ceiling: the decoder can deliver in bursts
+                    // and run slightly off the device clock without dropping/glitching.
+                    prime = max(Int(0.090 * rate), 64)
+                    maxF = max(Int(0.500 * rate), prime + 64)
+                }
                 source = PerUserMixSource(
                     channels: channels,
                     primeFrames: prime,
@@ -586,6 +620,9 @@ final class OutputAudioRenderEngine {
         _ ioData: UnsafeMutablePointer<AudioBufferList>?
     ) -> OSStatus {
         guard let ioData else { return noErr }
+        // Acquire the RT render state published by startImpl's release fence before
+        // reading rtDeviceChannels / rtPlanePtrs / rtPullCapacity / rtPull / currentGain.
+        ttac_atomic_fence_acquire()
         let abl = UnsafeMutableAudioBufferListPointer(ioData)
         let devCh = rtDeviceChannels
         let frameCount = Int(inNumberFrames)

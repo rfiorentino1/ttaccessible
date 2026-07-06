@@ -176,6 +176,217 @@ final class PreferencesCodableTests: XCTestCase {
     func testAdvancedInputAudioEmptyJSONUsesDefaults() throws {
         let prefs = try decode(AdvancedInputAudioPreferences.self, "{}")
         XCTAssertEqual(prefs.preset, .auto)
+        XCTAssertEqual(prefs.processingMode, .none)
         XCTAssertFalse(prefs.echoCancellationEnabled)
+        XCTAssertFalse(prefs.noiseSuppressionEnabled)
+    }
+
+    // Migration: legacy boolean `echoCancellationEnabled` maps to the processing mode.
+
+    func testAdvancedInputAudioLegacyAECTrueMigratesToEchoAndNoise() throws {
+        let prefs = try decode(AdvancedInputAudioPreferences.self, #"{"echoCancellationEnabled": true}"#)
+        XCTAssertEqual(prefs.processingMode, .echoAndNoise)
+        XCTAssertTrue(prefs.echoCancellationEnabled)
+        XCTAssertTrue(prefs.noiseSuppressionEnabled)
+    }
+
+    func testAdvancedInputAudioLegacyAECFalseMigratesToNone() throws {
+        let prefs = try decode(AdvancedInputAudioPreferences.self, #"{"echoCancellationEnabled": false}"#)
+        XCTAssertEqual(prefs.processingMode, .none)
+        XCTAssertFalse(prefs.echoCancellationEnabled)
+        XCTAssertFalse(prefs.noiseSuppressionEnabled)
+    }
+
+    func testAdvancedInputAudioNoiseSuppressionOnlyMode() throws {
+        let prefs = try decode(AdvancedInputAudioPreferences.self, #"{"processingMode": "noiseSuppression"}"#)
+        XCTAssertEqual(prefs.processingMode, .noiseSuppression)
+        XCTAssertFalse(prefs.echoCancellationEnabled)
+        XCTAssertTrue(prefs.noiseSuppressionEnabled)
+    }
+
+    func testAdvancedInputAudioModernKeyTakesPrecedenceOverLegacy() throws {
+        // When both the new mode and the legacy boolean are present, the new key wins.
+        let json = #"{"processingMode": "noiseSuppression", "echoCancellationEnabled": true}"#
+        let prefs = try decode(AdvancedInputAudioPreferences.self, json)
+        XCTAssertEqual(prefs.processingMode, .noiseSuppression)
+    }
+
+    func testAdvancedInputAudioProcessingModeRoundTrips() throws {
+        for mode in MicrophoneProcessingMode.allCases {
+            let original = AdvancedInputAudioPreferences(preset: .auto, processingMode: mode)
+            let data = try JSONEncoder().encode(original)
+            let decoded = try JSONDecoder().decode(AdvancedInputAudioPreferences.self, from: data)
+            XCTAssertEqual(decoded.processingMode, mode)
+        }
+    }
+}
+
+// MARK: - UserVolumeStore server scoping (issue #24)
+
+final class UserVolumeStoreScopingTests: XCTestCase {
+
+    private var suiteName: String!
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "UserVolumeStoreScopingTests.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults = nil
+        suiteName = nil
+        super.tearDown()
+    }
+
+    // A non-default value so it actually persists (default is pruned to "no entry").
+    private let louder = Int32(SOUND_VOLUME_DEFAULT.rawValue) + 1000
+
+    func testVolumeIsIsolatedBetweenServers() {
+        let store = UserVolumeStore(defaults: defaults)
+
+        store.setServerScope("serverA:10333")
+        store.setVolume(louder, forUsername: "guest")
+        XCTAssertEqual(store.volume(forUsername: "guest"), louder)
+
+        // Same generic username on a different server must NOT inherit the value.
+        store.setServerScope("serverB:10333")
+        XCTAssertNil(store.volume(forUsername: "guest"))
+
+        // Back to the first server: the value is still there.
+        store.setServerScope("serverA:10333")
+        XCTAssertEqual(store.volume(forUsername: "guest"), louder)
+    }
+
+    func testPanAndStereoAreAlsoScoped() {
+        let store = UserVolumeStore(defaults: defaults)
+
+        store.setServerScope("serverA:10333")
+        store.setPan(0.5, forUsername: "guest")
+        store.setStereoBalance(.init(left: true, right: false), forUsername: "guest")
+
+        store.setServerScope("serverB:10333")
+        XCTAssertNil(store.pan(forUsername: "guest"))
+        XCTAssertNil(store.stereoBalance(forUsername: "guest"))
+
+        store.setServerScope("serverA:10333")
+        XCTAssertEqual(store.pan(forUsername: "guest"), 0.5)
+        XCTAssertEqual(store.stereoBalance(forUsername: "guest"), .init(left: true, right: false))
+    }
+
+    func testLegacyUnscopedEntriesDoNotMatchScopedLookup() {
+        // Simulate a pre-fix entry written with no scope (bare-username key)...
+        let legacy = UserVolumeStore(defaults: defaults)
+        legacy.setVolume(louder, forUsername: "guest")   // scope is "" → key is "guest"
+        XCTAssertEqual(legacy.volume(forUsername: "guest"), louder)
+
+        // ...once connected (scope set), the polluted value no longer applies → 50% default.
+        let scoped = UserVolumeStore(defaults: defaults)
+        scoped.setServerScope("serverA:10333")
+        XCTAssertNil(scoped.volume(forUsername: "guest"))
+    }
+
+    func testDefaultVolumePrunesEntry() {
+        let store = UserVolumeStore(defaults: defaults)
+        store.setServerScope("serverA:10333")
+        store.setVolume(louder, forUsername: "guest")
+        store.setVolume(Int32(SOUND_VOLUME_DEFAULT.rawValue), forUsername: "guest")
+        XCTAssertNil(store.volume(forUsername: "guest"))
+    }
+
+    func testEmptyUsernameIsNeverStored() {
+        let store = UserVolumeStore(defaults: defaults)
+        store.setServerScope("serverA:10333")
+        store.setVolume(louder, forUsername: "")
+        XCTAssertNil(store.volume(forUsername: ""))
+    }
+
+    // MARK: Memory mode (off / session / persistent)
+
+    func testOffModeNeverRemembers() {
+        let store = UserVolumeStore(defaults: defaults)
+        store.setServerScope("serverA:10333")
+        store.setMemoryMode(.off)
+        store.setVolume(louder, forUsername: "guest")
+        XCTAssertNil(store.volume(forUsername: "guest"))
+        // Nothing was written to the persistent backing either.
+        let other = UserVolumeStore(defaults: defaults)
+        other.setServerScope("serverA:10333")
+        XCTAssertNil(other.volume(forUsername: "guest"))
+    }
+
+    func testSessionModeRemembersInMemoryButNotPersisted() {
+        let store = UserVolumeStore(defaults: defaults)
+        store.setServerScope("serverA:10333")
+        store.setMemoryMode(.session)
+        store.setVolume(louder, forUsername: "guest")
+        // Same store instance (same app run) remembers it.
+        XCTAssertEqual(store.volume(forUsername: "guest"), louder)
+        // A fresh instance (simulating a relaunch) does NOT — nothing hit UserDefaults.
+        let relaunched = UserVolumeStore(defaults: defaults)
+        relaunched.setServerScope("serverA:10333")
+        relaunched.setMemoryMode(.session)
+        XCTAssertNil(relaunched.volume(forUsername: "guest"))
+    }
+
+    func testPersistentModeSurvivesNewInstance() {
+        let store = UserVolumeStore(defaults: defaults)
+        store.setServerScope("serverA:10333")
+        store.setMemoryMode(.persistent)
+        store.setVolume(louder, forUsername: "guest")
+
+        let relaunched = UserVolumeStore(defaults: defaults)
+        relaunched.setServerScope("serverA:10333")
+        relaunched.setMemoryMode(.persistent)
+        XCTAssertEqual(relaunched.volume(forUsername: "guest"), louder)
+    }
+
+    func testSwitchingToOffStopsReadingPersistedValue() {
+        let store = UserVolumeStore(defaults: defaults)
+        store.setServerScope("serverA:10333")
+        store.setMemoryMode(.persistent)
+        store.setVolume(louder, forUsername: "guest")
+        XCTAssertEqual(store.volume(forUsername: "guest"), louder)
+
+        store.setMemoryMode(.off)
+        XCTAssertNil(store.volume(forUsername: "guest"))
+
+        // Switching back exposes the still-persisted value (off doesn't erase).
+        store.setMemoryMode(.persistent)
+        XCTAssertEqual(store.volume(forUsername: "guest"), louder)
+    }
+}
+
+// MARK: - AppPreferences userVolumeMemoryMode migration
+
+final class UserVolumeMemoryModePreferenceTests: XCTestCase {
+
+    private func decode(_ json: String) throws -> AppPreferences {
+        try JSONDecoder().decode(AppPreferences.self, from: Data(json.utf8))
+    }
+
+    func testDefaultsToPersistentWhenKeyAbsent() throws {
+        // A preferences blob saved before this feature existed.
+        let prefs = try decode("{}")
+        XCTAssertEqual(prefs.userVolumeMemoryMode, .persistent)
+    }
+
+    func testDecodesExplicitMode() throws {
+        for mode in AppPreferences.UserVolumeMemoryMode.allCases {
+            let prefs = try decode("{\"userVolumeMemoryMode\": \"\(mode.rawValue)\"}")
+            XCTAssertEqual(prefs.userVolumeMemoryMode, mode)
+        }
+    }
+
+    func testRoundTrips() throws {
+        for mode in AppPreferences.UserVolumeMemoryMode.allCases {
+            var prefs = AppPreferences()
+            prefs.userVolumeMemoryMode = mode
+            let data = try JSONEncoder().encode(prefs)
+            let decoded = try JSONDecoder().decode(AppPreferences.self, from: data)
+            XCTAssertEqual(decoded.userVolumeMemoryMode, mode)
+        }
     }
 }

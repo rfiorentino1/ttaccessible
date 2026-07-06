@@ -86,9 +86,9 @@ final class AdvancedMicrophoneSettingsStore: ObservableObject {
         refreshState(normalizeIfNeeded: true)
     }
 
-    func updateEchoCancellationEnabled(_ enabled: Bool) {
+    func updateProcessingMode(_ mode: MicrophoneProcessingMode) {
         var preferences = advancedPreferences
-        preferences.echoCancellationEnabled = enabled
+        preferences.processingMode = mode
         apply(preferences)
     }
 
@@ -241,7 +241,10 @@ final class AdvancedMicrophoneSettingsStore: ObservableObject {
             preset: normalized.preset,
             inputGainDB: preferencesStore.preferences.inputGainDB,
             targetFormat: targetFormat,
-            echoCancellationEnabled: false
+            // Echo cancellation needs a speaker reference that the local preview can't
+            // provide, so it stays off here; noise suppression works standalone.
+            echoCancellationEnabled: false,
+            noiseSuppressionEnabled: normalized.noiseSuppressionEnabled
         )
 
         try previewController.start(configuration: configuration, outputDeviceID: outputDeviceID)

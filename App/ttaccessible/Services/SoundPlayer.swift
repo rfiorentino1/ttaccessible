@@ -272,8 +272,13 @@ final class SoundPlayer {
     /// Pin the engine output to the resolved device and start it if needed.
     private func startEngineLocked() {
         guard graphReady, !players.isEmpty else { return }
-        applyDeviceLocked()
+        // Re-pin the device ONLY when the engine is stopped: setting
+        // kAudioOutputUnitProperty_CurrentDevice on a running AUHAL is the trap from
+        // CLAUDE.md. The appliedDeviceID dedup makes it benign today, but bail on a
+        // running engine first so it's safe by construction. Every path that actually
+        // starts the engine reaches here stopped, so the device is still pinned pre-start.
         guard !engine.isRunning else { return }
+        applyDeviceLocked()
         engine.prepare()
         do {
             try engine.start()

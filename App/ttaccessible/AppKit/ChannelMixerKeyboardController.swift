@@ -88,7 +88,16 @@ final class ChannelMixerKeyboardController {
             return true
         }
 
-        // Everything else needs a focused user strip.
+        // Everything else needs a focused user strip — but resolving it is up to ~8
+        // system-wide AXUIElementCopyAttributeValue calls, far too costly to run on
+        // every keystroke (and key-repeat). Only the plain arrows and v/p/m/s act on a
+        // strip, so gate the AX walk on those; typing, modified keys and unrelated
+        // shortcuts pass straight through without paying for the IPC.
+        guard plain else { return false }
+        let isMixerKey = arrow != nil
+            || ((event.charactersIgnoringModifiers?.lowercased()).map { ["v", "p", "m", "s"].contains($0) } ?? false)
+        guard isMixerKey else { return false }
+
         guard let uid = findFocusedStripUserID(), coordinator != nil else {
             arrowRepeat.stop(); return false
         }

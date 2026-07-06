@@ -36,7 +36,12 @@ enum InputAudioDeviceResolver {
             return nameMatch
         }
 
-        return defaultInputDevice(from: devices) ?? devices.first
+        // The user explicitly chose a specific input device and it isn't present.
+        // Return nil rather than silently substituting the default / first device —
+        // grabbing the "wrong mic" without telling anyone is worse than reporting the
+        // device as unavailable. This mirrors resolveOutputDevice's no-match semantics;
+        // callers that need a device surface a "device unavailable" error instead.
+        return nil
     }
 
     nonisolated static func availablePresetOptions(for device: InputAudioDeviceInfo?) -> [InputChannelPresetOption] {
@@ -91,10 +96,16 @@ enum InputAudioDeviceResolver {
 
     nonisolated static func summary(for preferences: AdvancedInputAudioPreferences) -> String {
         let presetTitle = title(for: preferences.preset)
-        let aecStatus = preferences.echoCancellationEnabled
-            ? L10n.text("preferences.audio.advanced.summary.aecOn")
-            : L10n.text("preferences.audio.advanced.summary.aecOff")
-        return L10n.format("preferences.audio.advanced.summary.active", presetTitle, aecStatus)
+        let processingStatus: String
+        switch preferences.processingMode {
+        case .none:
+            processingStatus = L10n.text("preferences.audio.advanced.summary.processingNone")
+        case .noiseSuppression:
+            processingStatus = L10n.text("preferences.audio.advanced.summary.processingNoiseSuppression")
+        case .echoAndNoise:
+            processingStatus = L10n.text("preferences.audio.advanced.summary.processingEchoAndNoise")
+        }
+        return L10n.format("preferences.audio.advanced.summary.active", presetTitle, processingStatus)
     }
 
     nonisolated static func availableInputDevices() -> [InputAudioDeviceInfo] {
