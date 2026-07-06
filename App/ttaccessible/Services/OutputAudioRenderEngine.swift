@@ -226,17 +226,19 @@ private final class PerUserMixSource {
         return false
     }
 
-    /// Pop the next frame as (left, right) source samples (mono is duplicated).
-    /// Returns false if empty.
-    func popFrameLR() -> (Int16, Int16)? {
-        guard buffer.count - head >= channels else { return nil }
-        let base = head
-        head += channels
-        if channels == 1 {
-            let s = buffer[base]
-            return (s, s)
+    /// Accumulate up to `frames` frames into the stereo Int32 accumulator with
+    /// the given per-side gains. The per-sample work happens in the C hot loop
+    /// (`ttac_mix_add`) so it stays real-time-fast even in unoptimized builds.
+    /// Returns the number of frames consumed (short when the source runs dry).
+    func mixInto(_ acc: UnsafeMutablePointer<Int32>, frames: Int, leftGain: Float, rightGain: Float) -> Int {
+        let n = min(frames, availableFrames)
+        guard n > 0 else { return 0 }
+        buffer.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            ttac_mix_add(acc, base + head, Int32(n), Int32(channels), leftGain, rightGain)
         }
-        return (buffer[base], buffer[base + 1])
+        head += n * channels
+        return n
     }
 }
 
@@ -266,6 +268,8 @@ final class OutputAudioRenderEngine {
     private var userSources: [Int32: PerUserMixSource] = [:]
     private var defaultUserSettings: [Int32: OutputUserMixSettings] = [:]
     private var mixScratch: [Int16] = []
+    /// Stereo Int32 accumulator the C mix loop sums sources into.
+    private var accScratch: [Int32] = []
     private var perUserPrimeFrames: Int = 0   // per-user jitter-buffer target
     private var perUserMaxFrames: Int = 0      // per-user catch-up ceiling
 
@@ -279,7 +283,10 @@ final class OutputAudioRenderEngine {
     private var rtDeviceChannels = 0
     private var rtPull: UnsafeMutablePointer<Int16>?
     private var rtPullCapacity = 0
-    private var rtPlanePtrs: [UnsafeMutablePointer<Float>?] = []
+    /// C array of plane pointers handed to `ttac_render_planes` (no Swift
+    /// array machinery on the render thread).
+    private var rtPlanesC: UnsafeMutablePointer<UnsafeMutablePointer<Float>?>?
+    private var rtPlanesCapacity = 0
     private var currentGain: Float = 1
     private var gainSmoothCoeff: Float = 0.01
 
@@ -427,7 +434,10 @@ final class OutputAudioRenderEngine {
         self.rtDeviceChannels = devChannels
         self.rtPull = pull
         self.rtPullCapacity = pullCapacity
-        self.rtPlanePtrs = [UnsafeMutablePointer<Float>?](repeating: nil, count: max(devChannels, 1))
+        rtPlanesC?.deallocate()
+        self.rtPlanesCapacity = max(devChannels, 1)
+        self.rtPlanesC = UnsafeMutablePointer<UnsafeMutablePointer<Float>?>.allocate(capacity: rtPlanesCapacity)
+        self.rtPlanesC?.initialize(repeating: nil, count: rtPlanesCapacity)
         self.currentGain = gainCell.pointee
         self.gainSmoothCoeff = Float(1.0 - exp(-1.0 / (0.008 * devRate)))
         self.underflowCount = 0
@@ -474,7 +484,7 @@ final class OutputAudioRenderEngine {
         rtPull?.deallocate(); rtPull = nil; rtPullCapacity = 0
         ring?.free(); ring = nil
         rtDeviceChannels = 0; deviceChannels = 0; deviceSampleRate = 0
-        rtPlanePtrs = []
+        rtPlanesC?.deallocate(); rtPlanesC = nil; rtPlanesCapacity = 0
     }
 
     func stop() {
@@ -491,7 +501,7 @@ final class OutputAudioRenderEngine {
 
         let drained = underflowCount
         rtPull?.deallocate(); rtPull = nil; rtPullCapacity = 0
-        rtPlanePtrs = []
+        rtPlanesC?.deallocate(); rtPlanesC = nil; rtPlanesCapacity = 0
         ring?.free(); ring = nil
         userSources.removeAll()
         deviceChannels = 0; deviceSampleRate = 0; rtDeviceChannels = 0
@@ -613,25 +623,26 @@ final class OutputAudioRenderEngine {
         if mixScratch.count < needed {
             mixScratch = [Int16](repeating: 0, count: needed)
         }
+        if accScratch.count < needed {
+            accScratch = [Int32](repeating: 0, count: needed)
+        }
 
         // Only mix sources that are primed (have buffered past their jitter target);
-        // this gate also drops a source mid-tick once it underruns.
+        // this gate also drops a source mid-tick once it underruns. The per-sample
+        // summing/clamping runs in the C hot loops so it holds up in -Onone builds.
         let active = userSources.values.filter { $0.prepareForMix() }
-        mixScratch.withUnsafeMutableBufferPointer { out in
-            guard let outBase = out.baseAddress else { return }
-            for f in 0..<produce {
-                var left = 0
-                var right = 0
-                for src in active {
-                    guard let (sl, sr) = src.popFrameLR() else { continue }
-                    let (lg, rg) = Self.panGains(volume: src.settings.volume, pan: src.settings.pan)
-                    left += Int(Float(sl) * lg)
-                    right += Int(Float(sr) * rg)
-                }
-                outBase[f * 2] = Int16(clamping: left)
-                outBase[f * 2 + 1] = Int16(clamping: right)
+        accScratch.withUnsafeMutableBufferPointer { accBuf in
+            guard let acc = accBuf.baseAddress else { return }
+            ttac_mix_clear(acc, Int32(needed))
+            for src in active {
+                let (lg, rg) = Self.panGains(volume: src.settings.volume, pan: src.settings.pan)
+                _ = src.mixInto(acc, frames: produce, leftGain: lg, rightGain: rg)
             }
-            ring.write(outBase, count: needed)
+            mixScratch.withUnsafeMutableBufferPointer { out in
+                guard let outBase = out.baseAddress else { return }
+                ttac_mix_clamp(outBase, acc, Int32(needed))
+                ring.write(outBase, count: needed)
+            }
         }
 
         if primedCell.pointee == 0, ring.fillCount() / mixChannels >= targetFillFrames {
@@ -692,16 +703,22 @@ final class OutputAudioRenderEngine {
     ) -> OSStatus {
         guard let ioData else { return noErr }
         // Acquire the RT render state published by startImpl's release fence before
-        // reading rtDeviceChannels / rtPlanePtrs / rtPullCapacity / rtPull / currentGain.
+        // reading rtDeviceChannels / rtPlanesC / rtPullCapacity / rtPull / currentGain.
         ttac_atomic_fence_acquire()
         let abl = UnsafeMutableAudioBufferListPointer(ioData)
         let devCh = rtDeviceChannels
         let frameCount = Int(inNumberFrames)
         let srcCh = mixChannels
-        guard devCh > 0, frameCount > 0, devCh <= rtPlanePtrs.count else { return noErr }
+        guard devCh > 0, frameCount > 0, devCh <= rtPlanesCapacity, let planes = rtPlanesC else { return noErr }
 
-        for ch in 0..<devCh {
+        var allPlanesValid = true
+        var ch = 0
+        while ch < devCh {
             abl[ch].mDataByteSize = UInt32(frameCount * MemoryLayout<Float>.size)
+            let p = abl[ch].mData?.assumingMemoryBound(to: Float.self)
+            planes[ch] = p
+            if p == nil { allPlanesValid = false }
+            ch += 1
         }
 
         let ready = primedCell.pointee != 0
@@ -709,55 +726,27 @@ final class OutputAudioRenderEngine {
             && ring != nil
             && rtPull != nil
 
-        let target: Float = (muteCell.pointee != 0) ? 0 : gainCell.pointee
-        let coeff = gainSmoothCoeff
-        let invScale: Float = 1.0 / 32_768.0
-
-        rtPlanePtrs.withUnsafeMutableBufferPointer { planesBuf in
-            guard let planes = planesBuf.baseAddress else { return }
-            var allPlanesValid = true
-            for ch in 0..<devCh {
-                let p = abl[ch].mData?.assumingMemoryBound(to: Float.self)
-                planes[ch] = p
-                if p == nil { allPlanesValid = false }
+        guard ready, allPlanesValid, let ring, let pull = rtPull else {
+            ch = 0
+            while ch < devCh {
+                if let plane = planes[ch] { plane.update(repeating: 0, count: frameCount) }
+                ch += 1
             }
-
-            guard ready, allPlanesValid, let ring, let pull = rtPull else {
-                for ch in 0..<devCh {
-                    if let plane = planes[ch] { plane.update(repeating: 0, count: frameCount) }
-                }
-                return
-            }
-
-            let pulled = ring.read(into: pull, maxSamples: frameCount * srcCh)
-            let framesAvailable = pulled / srcCh
-            if framesAvailable < frameCount { underflowCount += 1 }
-
-            var g = currentGain
-            for f in 0..<frameCount {
-                g += (target - g) * coeff
-                if f < framesAvailable {
-                    let base = f * srcCh   // stereo source: [L, R]
-                    for ch in 0..<devCh {
-                        guard let plane = planes[ch] else { continue }
-                        let sample: Int16
-                        if devCh == 1 {
-                            sample = Int16(clamping: (Int(pull[base]) + Int(pull[base + 1])) / 2)
-                        } else if ch <= 1 {
-                            sample = pull[base + ch]
-                        } else {
-                            sample = 0   // extra device channels (>2) get silence
-                        }
-                        plane[f] = Float(sample) * invScale * g
-                    }
-                } else {
-                    for ch in 0..<devCh {
-                        if let plane = planes[ch] { plane[f] = 0 }
-                    }
-                }
-            }
-            currentGain = g
+            return noErr
         }
+
+        let pulled = ring.read(into: pull, maxSamples: frameCount * srcCh)
+        let framesAvailable = pulled / srcCh
+        if framesAvailable < frameCount { underflowCount += 1 }
+
+        // Per-frame conversion + gain smoothing in the C hot loop (RT-safe in
+        // every build configuration; -Onone Swift measurably missed deadlines).
+        let target: Float = (muteCell.pointee != 0) ? 0 : gainCell.pointee
+        currentGain = ttac_render_planes(
+            planes, Int32(devCh), pull,
+            Int32(framesAvailable), Int32(frameCount),
+            currentGain, target, gainSmoothCoeff
+        )
 
         return noErr
     }
