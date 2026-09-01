@@ -72,9 +72,19 @@ final class SoundPlayer {
     // old behavior). Gain up to +12 dB is applied via node volume (≤ unity) or by
     // scaling the sample buffer (boost, clamped to avoid runaway clipping). The
     // engine output is pinned to the user's selected device and only runs while
-    // sounds are actually playing (stopped after a short idle), so it never holds
-    // the output device open the way a perpetually-running engine would.
-    private let engine = AVAudioEngine()
+    // sounds are actually playing, so it never holds the output device open the
+    // way a perpetually-running engine would.
+    //
+    // ⚠️ "Not holding the device open" takes more than engine.stop(). A stopped
+    // AVAudioEngine keeps its output AudioUnit ALLOCATED, and the device's HAL
+    // client — the process's claim on the device, visible to every other audio
+    // app — is only removed when that unit is DISPOSED. Measured 2026-08-31:
+    // this player sat on a (virtual) output device for hours, stopped and
+    // silent, still registered as a client. So the idle stop discards the whole
+    // engine (releaseEngineLocked) and the graph is rebuilt from the preloaded
+    // buffers on the next play — a few attach/connect calls, nothing re-read
+    // from disk. `var`, not `let`, for exactly that reason.
+    private var engine = AVAudioEngine()
     private var players: [NotificationSound: AVAudioPlayerNode] = [:]
     private var buffers: [NotificationSound: AVAudioPCMBuffer] = [:]
     private var graphReady = false
@@ -190,8 +200,14 @@ final class SoundPlayer {
     func play(_ sound: NotificationSound) {
         guard isEnabled, !disabledSounds.contains(sound) else { return }
         queue.async { [weak self] in
-            guard let self,
-                  let node = self.players[sound],
+            guard let self else { return }
+            // The idle stop discards the engine and its player nodes to release
+            // the output device; the first sound after an idle spell rebuilds
+            // the graph from the buffers already in memory.
+            if !self.graphReady {
+                self.rebuildGraphLocked()
+            }
+            guard let node = self.players[sound],
                   let buffer = self.buffers[sound] else { return }
             self.startEngineLocked()
             guard self.engine.isRunning else { return }
@@ -319,12 +335,28 @@ final class SoundPlayer {
             if self.players.values.contains(where: { $0.isPlaying }) {
                 self.scheduleIdleStop()   // something is still playing; check again later
             } else {
-                self.engine.stop()
-                self.appliedDeviceID = nil
+                self.releaseEngineLocked()
             }
         }
         idleStop = work
         queue.asyncAfter(deadline: .now() + 5.0, execute: work)
+    }
+
+    /// Actually let the output device go. engine.stop() is not enough: the
+    /// stopped engine keeps its output AudioUnit allocated, and macOS keeps
+    /// this process registered as a client of the device until the unit is
+    /// disposed — which for AVAudioEngine means deallocating the engine.
+    /// Must run on `queue`.
+    private func releaseEngineLocked() {
+        engine.stop()
+        for node in players.values {
+            engine.disconnectNodeOutput(node)
+            engine.detach(node)
+        }
+        players.removeAll()
+        graphReady = false
+        appliedDeviceID = nil
+        engine = AVAudioEngine()   // the old engine's dealloc is what disposes the unit
     }
 
     @discardableResult
