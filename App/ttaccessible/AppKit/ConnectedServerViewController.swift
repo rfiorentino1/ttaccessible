@@ -22,6 +22,16 @@ final class ServerTreeRowView: NSTableRowView {
 final class PressActionTextField: NSTextField {
     var onPress: (() -> Void)?
 
+    /// Whether VoiceOver hears the tooltip as help. Off where the tooltip only repeats
+    /// the accessibility label: the channel tree sets both to the row's full text, so a
+    /// truncated row can still be read with the mouse, and every row — a long topic
+    /// most of all — was spoken twice, once as its label and again as help.
+    var speaksToolTipAsHelp = true
+
+    override func accessibilityHelp() -> String? {
+        speaksToolTipAsHelp ? super.accessibilityHelp() : nil
+    }
+
     override func accessibilityPerformPress() -> Bool {
         guard let onPress else { return super.accessibilityPerformPress() }
         onPress()
