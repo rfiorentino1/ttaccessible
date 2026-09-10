@@ -17,7 +17,7 @@ extension ConnectedServerViewController {
         // The visible (sighted/mouse) SwiftUI strips, with the invisible virtual-
         // accessibility overlay laid over them — VoiceOver navigates the overlay, mouse
         // users see/use the SwiftUI. The overlay supplies the "Mixer / area" label+role.
-        let hosting = NSHostingView(rootView: ChannelMixerView(coordinator: channelMixerCoordinator))
+        let hosting = MixerHostingView(rootView: ChannelMixerView(coordinator: channelMixerCoordinator))
         hosting.translatesAutoresizingMaskIntoConstraints = false
         // Without this the hosting view keeps the height it was first measured at, and the
         // mixer overflows onto its neighbours as strips appear (seen on screen: Mute/Solo
@@ -34,12 +34,9 @@ extension ConnectedServerViewController {
         // between the floor and ceiling set on the section in the window's layout.
         hosting.setContentHuggingPriority(.init(rawValue: 1), for: .vertical)
         hosting.setContentCompressionResistancePriority(.init(rawValue: 1), for: .vertical)
-        // SwiftUI's accessibilityHidden hides the CONTENT, but the hosting view itself
-        // stayed in the AX tree as an empty group sharing the overlay's exact frame. Two
-        // elements at one position: VoiceOver kept the empty one going forward and the
-        // mixer going backward, so VO+Right skipped the mixer entirely. The visible
-        // rendering must be invisible to VoiceOver, container included.
-        hosting.setAccessibilityElement(false)
+        // SwiftUI's accessibilityHidden hides the CONTENT, not the host: the hosting view
+        // stays in the AX tree as an empty group right before the overlay. MixerHostingView
+        // takes it out — see there for why setAccessibilityElement(false) wasn't enough.
 
         let overlay = channelMixerCoordinator.overlay
         overlay.translatesAutoresizingMaskIntoConstraints = false
@@ -65,6 +62,17 @@ extension ConnectedServerViewController {
         return container
     }
 
+}
+
+/// The mixer's visible SwiftUI rendering, kept out of the accessibility tree entirely:
+/// VoiceOver reaches the mixer through the virtual overlay laid on top of it, and the
+/// host has nothing to offer. 107551a marked it with setAccessibilityElement(false),
+/// which a stock NSHostingView does not honour — the running app still exposed it as an
+/// empty AXHostingView group directly before the Mixer area (measured with axdump), a
+/// silent stop on every walk through the window. So the class says it itself.
+private final class MixerHostingView: NSHostingView<ChannelMixerView> {
+    override func isAccessibilityElement() -> Bool { false }
+    override func accessibilityChildren() -> [Any]? { [] }
 }
 
 #endif
