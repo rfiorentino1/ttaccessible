@@ -639,6 +639,8 @@
 "mediaStream.device.cleared.applications" = "Uygulamaların işareti kaldırıldı.";
 "mediaStream.device.cleared.systemAudio" = "Bu Mac'teki tüm sesin işareti kaldırıldı.";
 "mediaStream.device.cleared.device" = "%@ öğesinin işareti kaldırıldı.";
+"mediaStream.device.source.checked" = "%@ işaretlendi.";
+"mediaStream.device.source.unchecked" = "%@ öğesinin işareti kaldırıldı.";
 "mediaStream.device.summary.applications" = "%ld uygulama seçili";
 "mediaStream.device.summary.none" = "Hiçbir şey seçili değil";
 "mediaStream.device.added.application" = "%@ eklendi ve seçildi.";
@@ -654,7 +656,6 @@
 "mediaStream.device.source.andOthers" = "%1$@ ve %2$ld tane daha";
 "mediaStream.device.source.applicationMenu" = "Uygulama";
 "mediaStream.device.source.chooseApplication" = "Uygulama Seç…";
-"mediaStream.device.group.devices" = "Giriş Aygıtları";
 "mediaStream.device.group.applications" = "Uygulamalar";
 "mediaStream.device.error.sourceUnsupportedOS" = "Bir uygulamanın veya VoiceOver'ın sesini aktarmak için macOS 13 veya sonrası gerekir.";
 "mediaStream.device.error.processSourceUnavailable" = "Seçilen kaynakta şu anda yakalanacak ses yok. Kaynağın çalıştığından emin olun ve yeniden deneyin.";

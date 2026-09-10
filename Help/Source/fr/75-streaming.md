@@ -32,8 +32,11 @@ adresses sont retenues.
 ## Diffuser un périphérique, des apps ou VoiceOver
 
 1. Choisissez Raccourcis > Diffuser du son de ce Mac, ou appuyez sur Option + Commande + A.
-2. Dans la liste **Source audio**, cochez ce que vous voulez envoyer. Utilisez les flèches pour
-   parcourir la liste et la barre d'espace pour cocher ou décocher.
+2. Ouvrez le menu local **Source audio** et choisissez ce que vous voulez envoyer. **Tout le son de
+   ce Mac** figure en haut, puis vos périphériques d'entrée, puis **VoiceOver**, et vos applications
+   se trouvent dans le sous-menu **Applications**. Choisir une application, VoiceOver ou Tout le son
+   de ce Mac la coche ou la décoche : rouvrez le menu pour en ajouter une autre. Choisir un
+   périphérique le sélectionne seul.
 3. Sélectionnez **Me faire entendre l'audio diffusé** si vous voulez entendre ce que vous envoyez.
    L'option est décochée, pour ne pas vous imposer cette écoute.
 4. Sélectionnez **Couper le son de cette source sur ce Mac pendant la diffusion** pour la faire
@@ -51,8 +54,8 @@ adresses sont retenues.
 - **Un périphérique d'entrée**, qui se diffuse seul : cocher un périphérique décoche les
   applications, et inversement. tt-Accessible vous annonce ce qui vient d'être décoché.
 
-Pour désigner une app qui n'est pas lancée, cliquez sur **Sélectionner une application** — cela
-nécessite macOS 14.2 ou une version ultérieure. La diffusion de l'audio d'une app, de VoiceOver ou
+Pour désigner une app qui n'est pas lancée, choisissez **Sélectionner une application…** en bas du
+sous-menu Applications — cela nécessite macOS 14.2 ou une version ultérieure. La diffusion de l'audio d'une app, de VoiceOver ou
 de tout le Mac nécessite macOS 13 ou une version ultérieure.
 
 La diffusion continue même lorsque la source est silencieuse : une pause dans la musique ne

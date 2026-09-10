@@ -30,8 +30,10 @@ The last ten addresses are kept.
 ## Stream a device, apps or VoiceOver
 
 1. Choose Shortcuts > Stream Audio from This Mac, or press Option-Command-A.
-2. In the **Audio source** list, tick what you want to send. Use the arrow keys to move through the
-   list and the Space bar to tick or untick.
+2. Open the **Audio source** pop-up menu and choose what you want to send. **All audio from this
+   Mac** is at the top, then your input devices, then **VoiceOver**, with your applications in the
+   **Applications** submenu. Choosing an application, VoiceOver or All audio from this Mac ticks or
+   unticks it, so open the menu again to add another; choosing a device picks it on its own.
 3. Select **Play the streamed audio back to me** if you want to hear what you're sending. It's off,
    so you aren't forced to listen to it.
 4. Select **Mute this source on this Mac while streaming** to silence the source for yourself while
@@ -48,7 +50,8 @@ The last ten addresses are kept.
 - **An input device**, which streams on its own: ticking a device unticks the applications, and the
   other way round. tt-Accessible announces whatever was just unticked.
 
-To pick an app that isn't running, click **Select Application** — this requires macOS 14.2 or later.
+To pick an app that isn't running, choose **Select Application…** at the bottom of the Applications
+submenu — this requires macOS 14.2 or later.
 Streaming the audio of an app, of VoiceOver or of the whole Mac requires macOS 13 or later.
 
 The stream keeps going even while the source is silent, so a pause in the music doesn't end it. Your

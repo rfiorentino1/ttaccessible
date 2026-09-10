@@ -639,6 +639,8 @@
 "mediaStream.device.cleared.applications" = "Applications unticked.";
 "mediaStream.device.cleared.systemAudio" = "All audio from this Mac unticked.";
 "mediaStream.device.cleared.device" = "%@ unticked.";
+"mediaStream.device.source.checked" = "%@, ticked.";
+"mediaStream.device.source.unchecked" = "%@, unticked.";
 "mediaStream.device.summary.applications" = "%ld applications selected";
 "mediaStream.device.summary.none" = "Nothing selected";
 "mediaStream.device.added.application" = "%@ added and selected.";
@@ -654,7 +656,6 @@
 "mediaStream.device.source.andOthers" = "%1$@ and %2$ld others";
 "mediaStream.device.source.applicationMenu" = "Application";
 "mediaStream.device.source.chooseApplication" = "Select Application…";
-"mediaStream.device.group.devices" = "Input Devices";
 "mediaStream.device.group.applications" = "Applications";
 "mediaStream.device.error.sourceUnsupportedOS" = "Streaming an application's or VoiceOver's audio requires macOS 13 or later.";
 "mediaStream.device.error.processSourceUnavailable" = "The selected source has no audio to capture right now. Make sure it is running and try again.";

@@ -639,6 +639,8 @@
 "mediaStream.device.cleared.applications" = "Applications décochées.";
 "mediaStream.device.cleared.systemAudio" = "Tout le son de ce Mac décoché.";
 "mediaStream.device.cleared.device" = "%@ décoché.";
+"mediaStream.device.source.checked" = "%@, coché.";
+"mediaStream.device.source.unchecked" = "%@, décoché.";
 "mediaStream.device.summary.applications" = "%ld applications sélectionnées";
 "mediaStream.device.summary.none" = "Aucune source sélectionnée";
 "mediaStream.device.added.application" = "%@ ajoutée et sélectionnée.";
@@ -654,7 +656,6 @@
 "mediaStream.device.source.andOthers" = "%1$@ et %2$ld autres";
 "mediaStream.device.source.applicationMenu" = "Application";
 "mediaStream.device.source.chooseApplication" = "Sélectionner une application…";
-"mediaStream.device.group.devices" = "Périphériques d'entrée";
 "mediaStream.device.group.applications" = "Applications";
 "mediaStream.device.error.sourceUnsupportedOS" = "La diffusion de l'audio d'une application ou de VoiceOver nécessite macOS 13 ou version ultérieure.";
 "mediaStream.device.error.processSourceUnavailable" = "La source sélectionnée n'a aucun audio à capturer pour le moment. Vérifiez qu'elle est en cours d'exécution et réessayez.";
