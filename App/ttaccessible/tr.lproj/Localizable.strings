@@ -134,7 +134,6 @@
 "connectedServer.audio.status.microphoneActive" = "Mikrofon etkin. Sesiniz iletiliyor.";
 "connectedServer.audio.microphone.enable" = "Mikrofonu Aç";
 "connectedServer.audio.microphone.disable" = "Mikrofonu Kapat";
-"connectedServer.audio.microphone.accessibilityLabel" = "Mikrofon denetimi";
 "connectedServer.audio.inputGain.label" = "Giriş kazancı";
 "connectedServer.audio.inputGain.accessibilityLabel" = "Mikrofon giriş kazancı";
 "connectedServer.audio.outputGain.label" = "Çıkış ses düzeyi";

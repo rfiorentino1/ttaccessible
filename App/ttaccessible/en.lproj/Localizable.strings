@@ -134,7 +134,6 @@
 "connectedServer.audio.status.microphoneActive" = "Microphone active. Your voice is being transmitted.";
 "connectedServer.audio.microphone.enable" = "Enable microphone";
 "connectedServer.audio.microphone.disable" = "Mute microphone";
-"connectedServer.audio.microphone.accessibilityLabel" = "Microphone control";
 "connectedServer.audio.inputGain.label" = "Input volume";
 "connectedServer.audio.inputGain.accessibilityLabel" = "Microphone input volume";
 "connectedServer.audio.outputGain.label" = "Output volume";
