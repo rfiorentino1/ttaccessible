@@ -65,23 +65,40 @@ final class ConnectedServerViewController: NSViewController {
     lazy var channelMixerSectionView: NSView = buildChannelMixerSection()
     lazy var channelMixerKeyboardController = ChannelMixerKeyboardController(
         coordinator: channelMixerCoordinator,
-        // The mixer's own moves: 1 % per arrow (the step these shortcuts have always
-        // used), 10 % per page key, Home/End to the ends.
-        masterVolumeAdjust: { [weak self] move in
-            self?.channelMixerCoordinator.nudgeGlobalGain(GlobalGainSlot.output.rawValue, move: move)
-        },
-        mediaVolumeAdjust: { [weak self] move in
-            self?.channelMixerCoordinator.nudgeGlobalGain(GlobalGainSlot.media.rawValue, move: move)
-        },
-        masterMuteState: { [weak self] in
-            guard let self else { return nil }
-            return L10n.text(menuState.isMasterMuted ? "shortcuts.masterMute.announced.muted"
-                                                     : "shortcuts.masterMute.announced.unmuted")
-        },
-        masterMuteToggle: { [weak self] in self?.appDelegate.toggleMasterMute() }
+        // The window-wide level shortcuts drive the window's own sliders, which own the
+        // value and its persistence. 1 % per arrow, 10 % per page key, Home/End to the
+        // ends — MixerLevelMove is the one place that says so.
+        masterVolumeAdjust: { [weak self] move in self?.outputGainControl.adjustAndDescribe(move: move) },
+        mediaVolumeAdjust: { [weak self] move in self?.mediaGainControl.adjustAndDescribe(move: move) }
     )
     let embeddedMediaStreamingControls = MediaStreamingPlayerViewController()
     var lastVideoDisplayState = VideoDisplayState.empty
+    lazy var inputGainControl = AudioGainControlView(
+        title: L10n.text("connectedServer.audio.inputGain.label"),
+        accessibilityLabel: L10n.text("connectedServer.audio.inputGain.accessibilityLabel")
+    ) { [weak self] value in
+        self?.applyInputGain(value)
+    }
+    lazy var outputGainControl = AudioGainControlView(
+        title: L10n.text("connectedServer.audio.outputGain.label"),
+        accessibilityLabel: L10n.text("connectedServer.audio.outputGain.accessibilityLabel")
+    ) { [weak self] value in
+        self?.applyOutputGain(value)
+    }
+    lazy var soundEffectsGainControl = AudioGainControlView(
+        title: L10n.text("connectedServer.audio.soundEffectsGain.label"),
+        accessibilityLabel: L10n.text("connectedServer.audio.soundEffectsGain.accessibilityLabel")
+    ) { [weak self] value in
+        self?.applySoundEffectsGain(value)
+    }
+    /// The media bus (02c234f) — every media stream at once. It had no control of its own
+    /// while the levels lived in the mixer; this is its home.
+    lazy var mediaGainControl = AudioGainControlView(
+        title: L10n.text("connectedServer.audio.mediaGain.label"),
+        accessibilityLabel: L10n.text("connectedServer.audio.mediaGain.accessibilityLabel")
+    ) { [weak self] value in
+        self?.applyMediaGain(value)
+    }
     lazy var contextMenu: NSMenu = makeContextMenu()
     /// The window's two panes; kept so the first launch can position the divider.
     private weak var connectedSplitView: ConnectedServerSplitView?
@@ -479,10 +496,15 @@ final class ConnectedServerViewController: NSViewController {
         chatScrollView.translatesAutoresizingMaskIntoConstraints = false
         historyScrollView.translatesAutoresizingMaskIntoConstraints = false
 
-        // Output / media / microphone / sound-effects levels used to sit here as four
-        // sliders. They live in the mixer's "General" strip now — one place, one rendering
-        // per audience — so this stack only carries the media-streaming controls.
+        // The global levels are sliders in the window, where you can land on them
+        // directly, rather than a strip inside the mixer behind another layer of
+        // navigation. Output, input and sound effects keep the order they have always
+        // had; media is new, and sits next to the streaming controls it governs.
         let audioControlsStack = NSStackView(views: [
+            outputGainControl,
+            inputGainControl,
+            soundEffectsGainControl,
+            mediaGainControl,
             embeddedMediaStreamingControls.view
         ])
         audioControlsStack.orientation = .vertical
@@ -581,6 +603,10 @@ final class ConnectedServerViewController: NSViewController {
             mixerMinimumHeight,
             mixerMaximumHeight,
             audioControlsStack.widthAnchor.constraint(equalTo: mainStack.widthAnchor),
+            outputGainControl.widthAnchor.constraint(equalTo: audioControlsStack.widthAnchor),
+            inputGainControl.widthAnchor.constraint(equalTo: audioControlsStack.widthAnchor),
+            soundEffectsGainControl.widthAnchor.constraint(equalTo: audioControlsStack.widthAnchor),
+            mediaGainControl.widthAnchor.constraint(equalTo: audioControlsStack.widthAnchor),
             embeddedMediaStreamingControls.view.widthAnchor.constraint(equalTo: audioControlsStack.widthAnchor),
             chatScrollView.widthAnchor.constraint(equalTo: mainStack.widthAnchor),
             chatScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
@@ -793,8 +819,10 @@ final class ConnectedServerViewController: NSViewController {
             lastAnnouncedMicrophoneStatus = session.audioStatusText
             NSAccessibility.post(element: microphoneButton, notification: .valueChanged)
         }
-        // The four global levels are read live by the mixer's General strip; refreshing
-        // its published snapshot is what keeps the visible faders in step.
+        inputGainControl.setValue(session.inputGainDB)
+        outputGainControl.setValue(session.outputGainDB)
+        soundEffectsGainControl.setValue(preferencesStore.preferences.soundEffectsGainDB)
+        mediaGainControl.setValue(preferencesStore.preferences.mediaGainDB)
         channelMixerCoordinator.refreshDisplay()
     }
 

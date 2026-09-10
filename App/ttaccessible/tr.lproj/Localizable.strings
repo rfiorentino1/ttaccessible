@@ -754,11 +754,6 @@
 "mixer.area.announce" = "Kanal Mikseri";
 "mixer.area.roleDescription" = "alan";
 "mixer.strip.roleDescription" = "kanal şeridi";
-"mixer.general.label" = "Genel";
-"mixer.general.output" = "Çıkış ses düzeyi";
-"mixer.general.media" = "Medya ses düzeyi";
-"mixer.general.input" = "Mikrofon kazancı";
-"mixer.general.soundEffects" = "Ses efektleri düzeyi";
 "mixer.control.slider.roleDescription" = "sürgü";
 "mixer.control.button.roleDescription" = "düğme";
 "mixer.control.picker.roleDescription" = "açılır düğme";

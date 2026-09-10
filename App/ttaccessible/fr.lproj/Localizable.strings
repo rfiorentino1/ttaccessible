@@ -754,11 +754,6 @@
 "mixer.area.announce" = "Mixeur du canal";
 "mixer.area.roleDescription" = "zone";
 "mixer.strip.roleDescription" = "tranche de console";
-"mixer.general.label" = "Général";
-"mixer.general.output" = "Volume de sortie";
-"mixer.general.media" = "Volume des médias";
-"mixer.general.input" = "Volume du microphone";
-"mixer.general.soundEffects" = "Volume des effets sonores";
 "mixer.control.slider.roleDescription" = "curseur";
 "mixer.control.button.roleDescription" = "bouton";
 "mixer.control.picker.roleDescription" = "bouton contextuel";

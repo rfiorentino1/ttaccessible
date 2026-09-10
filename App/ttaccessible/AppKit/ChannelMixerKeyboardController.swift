@@ -4,29 +4,22 @@
 //
 //  The Channel Mixer's keyboard model, matching Rocco's Mixer app: a local NSEvent
 //  monitor that, while VoiceOver is focused on a mixer strip, routes
-//    Cmd+Up/Down    -> the focused user's media-file volume (master output volume when
-//                      the cursor is OUTSIDE the mixer)
+//    Cmd+Up/Down    -> the focused user's media-file volume (the window's Output volume
+//                      slider when the cursor is OUTSIDE the mixer)
 //    Up/Down        -> the focused user's voice volume
 //    Left/Right     -> the focused user's VOICE pan
 //    Cmd+Left/Right -> the focused user's MEDIA pan (on a strip only)
 //    v / p / m      -> announce voice volume / voice pan / mute (single tap); reset 50% /
 //                      center / toggle mute (double tap)
 //    Cmd+p          -> announce media pan (single tap); reset media pan to center (double)
-//    m (General)    -> announce the master mute (single tap); toggle it (double tap), by
-//                      running Cmd+M's own action
-//    Cmd+Shift+Up/Down -> the MEDIA BUS level (every media stream at once), from anywhere
-//                      in the window — the point is to duck the music without first
-//                      navigating to the mixer.
+//    Cmd+Shift+Up/Down -> the window's Media volume slider (the media bus: every media
+//                      stream at once), from anywhere in the window — the point is to duck
+//                      the music without first navigating to the mixer.
 //  Page Up/Down, Home, End -> wherever Up/Down move a level, these move it by ten and
 //                      jump to 100 % / 0 %; the arrows move by one. They take the same
 //                      modifiers as the arrows, but only ON a strip: off one, Cmd+Home
 //                      and Cmd+End belong to the list under the cursor.
 //                      See MixerLevelMove.
-//  On the GENERAL strip (the global levels): Left/Right pick the level — output, media,
-//  microphone, sound effects — and Up/Down move it, with v announcing it (double tap
-//  resets to 50 %). The keys address the STRIP, like every user strip: VoiceOver's cursor
-//  sits on the strip's group element, and nothing else would move these levels anyway
-//  (the cursor is on a virtual overlay element, not on the window's NSSlider).
 //  Single/double-tap and key-repeat use the ported KeyCommandHandler / ArrowRepeatHandler.
 //  Single taps speak IMMEDIATELY (see KeyCommandHandler): they only announce, so there is
 //  nothing to hold back while waiting to see whether a double tap follows.
@@ -46,11 +39,6 @@ final class ChannelMixerKeyboardController {
     private let masterVolumeAdjust: (MixerLevelMove) -> String?
     /// Same, for the media bus (Cmd+Shift + a level key).
     private let mediaVolumeAdjust: (MixerLevelMove) -> String?
-    /// The master mute, as m on the General strip: state to announce (single tap) and the
-    /// very action Cmd+M runs (double tap) — one implementation, one announcement, one
-    /// sound, whichever route the user takes.
-    private let masterMuteState: () -> String?
-    private let masterMuteToggle: () -> Void
 
     private var monitor: Any?
     private let keyHandler = KeyCommandHandler()
@@ -58,14 +46,10 @@ final class ChannelMixerKeyboardController {
 
     init(coordinator: ChannelMixerCoordinator,
          masterVolumeAdjust: @escaping (MixerLevelMove) -> String?,
-         mediaVolumeAdjust: @escaping (MixerLevelMove) -> String?,
-         masterMuteState: @escaping () -> String?,
-         masterMuteToggle: @escaping () -> Void) {
+         mediaVolumeAdjust: @escaping (MixerLevelMove) -> String?) {
         self.coordinator = coordinator
         self.masterVolumeAdjust = masterVolumeAdjust
         self.mediaVolumeAdjust = mediaVolumeAdjust
-        self.masterMuteState = masterMuteState
-        self.masterMuteToggle = masterMuteToggle
     }
 
     func start() {
@@ -128,14 +112,12 @@ final class ChannelMixerKeyboardController {
         if cmd, !shift, !mods.contains(.option), !mods.contains(.control),
            let key, let move {
             let strip = findFocusedStripUserID()
-            // The General strip is not a user strip: it has no per-user media volume, so
-            // Cmd+arrows keep their window-wide meaning (the output level) there.
-            if let uid = strip, uid != ChannelMixerCoordinator.generalStripID {
+            if let uid = strip {
                 keyRepeat.start(key: key) { [weak self] in
                     guard let self, let c = self.coordinator else { return }
                     self.announce(c.nudgeMedia(uid, move: move))
                 }
-            } else if !key.hasListMeaning || strip != nil {
+            } else if !key.hasListMeaning {
                 keyRepeat.start(key: key) { [weak self] in
                     if let text = self?.masterVolumeAdjust(move) { self?.announce(text) }
                 }
@@ -151,8 +133,7 @@ final class ChannelMixerKeyboardController {
         // meaning, so off a strip these pass straight through.
         if cmd, !shift, !mods.contains(.option), !mods.contains(.control),
            let key, key == .left || key == .right {
-            guard let uid = findFocusedStripUserID(), uid != ChannelMixerCoordinator.generalStripID
-            else { keyRepeat.stop(); return false }
+            guard let uid = findFocusedStripUserID() else { keyRepeat.stop(); return false }
             keyRepeat.start(key: key) { [weak self] in
                 guard let self, let c = self.coordinator else { return }
                 self.announce(c.nudgeMediaPan(uid, right: key == .right))
@@ -164,8 +145,7 @@ final class ChannelMixerKeyboardController {
         // mirroring plain P for voice pan. Strip-gated, so off a strip Cmd+P is untouched.
         if cmd, !shift, !mods.contains(.option), !mods.contains(.control),
            !event.isARepeat, event.charactersIgnoringModifiers?.lowercased() == "p" {
-            guard let uid = findFocusedStripUserID(), uid != ChannelMixerCoordinator.generalStripID
-            else { return false }
+            guard let uid = findFocusedStripUserID() else { return false }
             keyHandler.handle(key: "cmd-p",
                 onSingle: { [weak self] in self?.announceFrom { $0.announceMediaPan(uid) } },
                 onDouble: { [weak self] in self?.announceFrom { $0.resetMediaPan(uid) } })
@@ -186,51 +166,6 @@ final class ChannelMixerKeyboardController {
 
         guard let focus = findFocusedStrip(), coordinator != nil else {
             keyRepeat.stop(); return false
-        }
-
-        // The General strip. VoiceOver's cursor stays on the strip's GROUP here, exactly as
-        // it does on a user strip — measured, not assumed — so the keys must address the
-        // strip, never "the focused control": stepping into the controls is not how this
-        // mixer is navigated. It carries four levels and no pan, so left/right picks the
-        // level (the one thing left/right can mean here) and up/down moves it. When the
-        // cursor IS inside a control, that control wins.
-        if focus.id == ChannelMixerCoordinator.generalStripID {
-            if let key {
-                keyRepeat.start(key: key) { [weak self] in
-                    guard let self, let c = self.coordinator else { return }
-                    let text: String?
-                    if let move = key.levelMove {
-                        if let index = focus.controlIndex {
-                            text = c.nudgeGlobalGain(index, move: move)
-                        } else {
-                            text = c.nudgeSelectedGlobalGain(move: move)
-                        }
-                    } else {
-                        text = c.selectGlobalGain(next: key == .right)
-                    }
-                    if let text { self.announce(text) }
-                }
-                return true
-            }
-            // V and M mirror a user strip's keys: V the armed level (double tap resets it),
-            // M the master mute — the same toggle Cmd+M runs, so it keeps its sound, its
-            // menu state and its own announcement. P/S have no meaning here and pass through.
-            switch event.charactersIgnoringModifiers?.lowercased() {
-            case "v":
-                keyHandler.handle(key: "v",
-                    onSingle: { [weak self] in self?.announceOptional { $0.announceSelectedGlobalGain() } },
-                    onDouble: { [weak self] in self?.announceOptional { $0.resetSelectedGlobalGain() } })
-                return true
-            case "m":
-                keyHandler.handle(key: "m",
-                    onSingle: { [weak self] in if let text = self?.masterMuteState() { self?.announce(text) } },
-                    // No announce() here: toggleMasterMute speaks for itself, and a second
-                    // announcement would be the double diction we just removed elsewhere.
-                    onDouble: { [weak self] in self?.masterMuteToggle() })
-                return true
-            default:
-                return false
-            }
         }
 
         let uid = focus.id
@@ -274,11 +209,6 @@ final class ChannelMixerKeyboardController {
         default:
             return false
         }
-    }
-
-    private func announceOptional(_ make: (ChannelMixerCoordinator) -> String?) {
-        guard let coordinator, let text = make(coordinator) else { return }
-        announce(text)
     }
 
     private func announceFrom(_ make: (ChannelMixerCoordinator) -> String) {

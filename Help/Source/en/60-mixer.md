@@ -6,25 +6,23 @@ anchor: mixer
 ---
 
 The channel mixer turns the people in your channel into a small mixing desk, with one channel strip
-per person, and a General strip at its head for the levels that belong to nobody in particular. You
-can place someone on the left and someone else on the right, or bring back a person who is too
-quiet, without touching anyone else.
+per person. You can place someone on the left and someone else on the right, or bring back a person
+who is too quiet, without touching anyone else.
 
 ## Open the mixer
 
-Press Command-5. You land on the General strip, and the people follow. When you're alone in the
-channel, the General strip is still there and the mixer reports *No other users in this channel.*
+Press Command-5. When you're alone in the channel, the mixer reports *No other users in this
+channel.*
 
-## Set the general levels
+## Set the levels that apply to everything
 
-The General strip carries the four levels that apply to the whole app: **Output volume**, **Media
-volume**, **Microphone volume** and **Sound effects volume**. They are nowhere else in the window —
-this strip is where they live, for the mouse as much as for the keyboard.
+The four levels that belong to nobody in particular — **Output volume**, **Input volume**, **Sound
+effects volume** and **Media volume** — are sliders in the window itself, just above the mixer, so
+you can land on each one directly instead of going through the mixer to reach it.
 
-Left Arrow and Right Arrow choose which level the arrows act on, and it is announced with its
-value. Up Arrow and Down Arrow move it by 1%, Page Up and Page Down by 10%, and Home and End take it
-straight to 100% or 0%. V speaks it, and pressing V twice puts it back to 50%. M speaks the master
-mute, and pressing it twice turns it on or off.
+On any of them, the arrows move the level by 1%, Page Up and Page Down by 10%, and Home and End take
+it straight to 100% or 0%. Command-Up Arrow and Command-Down Arrow move the output volume from
+anywhere in the window.
 
 **Media volume** turns down every media stream in the channel at once — your own included — without
 touching anyone's voice. Command-Shift-Up Arrow and Command-Shift-Down Arrow reach it from anywhere

@@ -6,27 +6,24 @@ anchor: mixer
 ---
 
 Le mixeur du canal transforme les personnes présentes en une petite console, avec une tranche par
-personne, et une tranche Général en tête pour les niveaux qui n'appartiennent à personne en
-particulier. Vous pouvez placer quelqu'un à gauche et quelqu'un d'autre à droite, ou remonter une
+personne. Vous pouvez placer quelqu'un à gauche et quelqu'un d'autre à droite, ou remonter une
 personne trop faible, sans toucher aux autres.
 
 ## Ouvrir le mixeur
 
-Appuyez sur Commande + 5. Vous arrivez sur la tranche Général, les personnes viennent ensuite. Quand
-vous êtes seul dans le canal, la tranche Général reste en place et le mixeur indique *Aucun autre
+Appuyez sur Commande + 5. Quand vous êtes seul dans le canal, le mixeur indique *Aucun autre
 utilisateur dans ce canal.*
 
-## Régler les niveaux généraux
+## Régler les niveaux qui valent pour tout
 
-La tranche Général réunit les quatre niveaux qui valent pour toute l'application : **Volume de
-sortie**, **Volume des médias**, **Volume du microphone** et **Volume des effets sonores**. Ils ne
-figurent nulle part ailleurs dans la fenêtre : c'est ici qu'ils vivent, à la souris comme au
-clavier.
+Les quatre niveaux qui n'appartiennent à personne en particulier — **Volume de sortie**, **Volume
+d'entrée**, **Volume des effets sonores** et **Volume des médias** — sont des curseurs dans la
+fenêtre elle-même, juste au-dessus du mixeur : vous vous posez directement sur chacun d'eux, sans
+passer par le mixeur.
 
-Les flèches gauche et droite choisissent le niveau sur lequel vous agissez — il est annoncé avec sa
-valeur —, les flèches haut et bas le règlent de 1 %, Page précédente et Page suivante de 10 %, et
-Début et Fin le portent d'un coup à 100 % ou à 0 %. V l'annonce, et deux appuis sur V le remettent à
-50 %. M annonce la sourdine générale, et deux appuis la changent.
+Sur l'un quelconque d'entre eux, les flèches règlent le niveau de 1 %, Page précédente et Page
+suivante de 10 %, et Début et Fin le portent d'un coup à 100 % ou à 0 %. Commande + Flèche haut ou
+Flèche bas règle le volume de sortie depuis n'importe où dans la fenêtre.
 
 Le **volume des médias** baisse d'un coup toutes les diffusions du canal, la vôtre comprise, sans
 toucher à la voix de personne. Commande + Majuscule + Flèche haut ou Flèche bas l'atteint depuis

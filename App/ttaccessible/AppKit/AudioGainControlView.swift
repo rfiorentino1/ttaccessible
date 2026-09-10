@@ -84,31 +84,34 @@ final class AudioGainControlView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        switch event.specialKey {
-        case .leftArrow, .downArrow:
-            adjust(by: -1)
-        case .rightArrow, .upArrow:
-            adjust(by: 1)
-        case .pageUp:
-            adjust(by: 10)
-        case .pageDown:
-            adjust(by: -10)
-        case .home:
-            setAndNotify(-24)
-        case .end:
-            setAndNotify(24)
-        default:
+        guard let move = Self.levelMove(for: event.specialKey) else {
             super.keyDown(with: event)
+            return
+        }
+        apply(move)
+    }
+
+    /// The same key→distance table the mixer uses, so a level moves by the same amount
+    /// whichever route reaches it. Home was jumping to 0 % here and to 100 % in the mixer.
+    private static func levelMove(for key: NSEvent.SpecialKey?) -> MixerLevelMove? {
+        switch key {
+        case .leftArrow, .downArrow: return .step(up: false)
+        case .rightArrow, .upArrow: return .step(up: true)
+        case .pageUp: return .page(up: true)
+        case .pageDown: return .page(up: false)
+        case .home: return .toMax
+        case .end: return .toMin
+        default: return nil
         }
     }
 
     override func accessibilityPerformIncrement() -> Bool {
-        adjust(by: 1)
+        apply(.step(up: true))
         return true
     }
 
     override func accessibilityPerformDecrement() -> Bool {
-        adjust(by: -1)
+        apply(.step(up: false))
         return true
     }
 
@@ -140,16 +143,15 @@ final class AudioGainControlView: NSView {
         onChange?(valueDB)
     }
 
-    func adjust(by delta: Double) {
-        let updated = min(max((slider.doubleValue + delta).rounded(), 0), 100)
-        setAndNotify(Self.gainDB(forPercent: updated))
-    }
-
-    /// Nudge one step and return the spoken value (used by the mixer's Cmd+Up/Down).
-    func adjustAndDescribe(up: Bool) -> String {
-        adjust(by: up ? 1 : -1)
+    /// Move this level and return the value to speak.
+    @discardableResult
+    func apply(_ move: MixerLevelMove) -> String {
+        setAndNotify(Self.gainDB(forPercent: move.apply(to: slider.doubleValue)))
         return Self.format(percent: slider.doubleValue)
     }
+
+    /// Move and describe, for the window-wide Cmd+arrow / Cmd+Shift+arrow shortcuts.
+    func adjustAndDescribe(move: MixerLevelMove) -> String { apply(move) }
 
     func setAndNotify(_ value: Double) {
         guard value != valueDB else {
