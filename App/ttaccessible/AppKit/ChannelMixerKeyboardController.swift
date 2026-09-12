@@ -21,8 +21,8 @@
 //                      and Cmd+End belong to the list under the cursor.
 //                      See MixerLevelMove.
 //  Single/double-tap and key-repeat use the ported KeyCommandHandler / ArrowRepeatHandler.
-//  Single taps speak IMMEDIATELY (see KeyCommandHandler): they only announce, so there is
-//  nothing to hold back while waiting to see whether a double tap follows.
+//  Single taps wait out the double-tap window before speaking (see KeyCommandHandler), so a
+//  double tap speaks only its own result, never the old value first.
 //  The focused user is resolved from VoiceOver's AX cursor (the "channel-strip-<id>"
 //  identifier set by the virtual-accessibility tree), so plain arrows are only hijacked
 //  while the cursor is inside the mixer — elsewhere they pass through untouched. Cmd+Up/Down
@@ -326,27 +326,38 @@ enum MixerKey: Hashable {
     }
 }
 
-/// Single vs double-tap discrimination for the v/p/m keys (0.35s window).
+/// Single vs double-tap discrimination for the v/p/m/s keys (0.35s window).
 @MainActor
 final class KeyCommandHandler {
+    private var pending: [String: DispatchWorkItem] = [:]
     private var lastPress: [String: TimeInterval] = [:]
-    private let doubleTapInterval: TimeInterval = 0.35
+    private let doubleTapInterval: TimeInterval
 
-    /// Every single-tap action in this mixer is a pure ANNOUNCEMENT — nothing to undo —
-    /// so it runs on the first press instead of after the double-tap window. Waiting out
-    /// 0.35 s just to speak a value is what made m and s feel sluggish. A second press
-    /// inside the window then performs the real action, and its own high-priority
-    /// announcement interrupts the first. (This is where we diverge from Rocco's Mixer,
-    /// which defers the single tap.)
-    func handle(key: String, onSingle: () -> Void, onDouble: () -> Void) {
+    init(doubleTapInterval: TimeInterval = 0.35) {
+        self.doubleTapInterval = doubleTapInterval
+    }
+
+    /// The single-tap action is DEFERRED until the double-tap window has passed, as in
+    /// Rocco's Mixer app: a double tap must run ONLY its own action. Speaking the single
+    /// tap on the first press was tried and rejected — every double tap then read the old
+    /// value first (the single's announcement) and only then the double's.
+    func handle(key: String, onSingle: @escaping () -> Void, onDouble: @escaping () -> Void) {
         let now = CACurrentMediaTime()
         if let last = lastPress[key], now - last <= doubleTapInterval {
+            pending[key]?.cancel()
+            pending[key] = nil
             lastPress[key] = 0          // a third press starts a fresh single tap
             onDouble()
             return
         }
         lastPress[key] = now
-        onSingle()
+        let work = DispatchWorkItem { [weak self] in
+            self?.lastPress[key] = 0
+            self?.pending[key] = nil
+            onSingle()
+        }
+        pending[key] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapInterval, execute: work)
     }
 }
 
