@@ -207,8 +207,11 @@ final class MediaStreamSourceViewController: NSViewController {
         header.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
         header.translatesAutoresizingMaskIntoConstraints = false
         // AXHeading by raw value: the typed constant is macOS 26+, this app
-        // targets 12. Same approach as MoveUsersViewController.
+        // targets 12. Same approach as MoveUsersViewController. With that role the
+        // field's text is only its AXValue, and VoiceOver announced an empty
+        // heading, so the title is the label too.
         header.setAccessibilityRole(NSAccessibility.Role(rawValue: "AXHeading"))
+        header.setAccessibilityLabel(header.stringValue)
 
         let message = NSTextField(wrappingLabelWithString: L10n.text("mediaStream.device.prompt.message"))
         message.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
