@@ -30,10 +30,10 @@ The last ten addresses are kept.
 ## Stream a device, apps or VoiceOver
 
 1. Choose Shortcuts > Stream Audio from This Mac, or press Option-Command-A.
-2. Tick what you want to send in the list of sources. It opens on your current choice.
+2. Check what you want to send in the list of sources. It opens on your current choice.
    **All audio from this Mac** is at the top, then three groups you open and close with the Right
    and Left Arrow keys: **Recently used**, which starts open, **Devices**, and **Applications**,
-   which starts with **VoiceOver**. Press Space to tick or untick the line you're on; with
+   which starts with **VoiceOver**. Press Space to check or uncheck the line you're on; with
    VoiceOver, VO-Space does the same. To find a source quickly, type part of its name in the
    **Search sources** field to the left of the list: the list keeps only the matches, opens every
    group that has one and says how many there are. Press Down Arrow to go from the search field to
@@ -44,22 +44,22 @@ The last ten addresses are kept.
    the channel keeps hearing it. It only applies to applications, on recent versions of macOS.
 5. Click Stream.
 
-### What you can tick
+### What you can check
 
 - **Several applications at once.** Your music player and VoiceOver, say, so the channel hears both
   what you're listening to and what your screen reader is saying.
 - **All audio from this Mac**, when naming the apps one by one isn't worth it. tt-Accessible's own
   output is left out of the capture, otherwise the channel would hear itself come back. Be aware
   that notifications and system sounds go out too.
-- **An input device**, which streams on its own: ticking a device unticks the applications, and the
-  other way round. tt-Accessible announces whatever was just unticked.
+- **An input device**, which streams on its own: checking a device unchecks the applications, and the
+  other way round. tt-Accessible announces whatever was just unchecked.
 
 To pick an app that isn't running, click **Select Application…**, next to the list — this requires
-macOS 14.2 or later. The app is added to the Applications group, ticked.
+macOS 14.2 or later. The app is added to the Applications group, checked.
 Streaming the audio of an app, of VoiceOver or of the whole Mac requires macOS 13 or later.
 
 The stream keeps going even while the source is silent, so a pause in the music doesn't end it. Your
-last choice is ticked again next time, even when it covered several applications. **Recently used**
+last choice is checked again next time, even when it covered several applications. **Recently used**
 keeps the last five sources you streamed, newest first; a source that isn't available any more, such
 as an unplugged device, is left out.
 
