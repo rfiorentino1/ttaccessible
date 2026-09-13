@@ -101,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordingAccessedFolder: URL?
     private var activeRecordingMode: Int = 0
     private var recordingStopKeyMonitor: Any?
+    private var microphoneMenuKeyMonitor: Any?
     private var lastObservedChannelID: Int32 = 0
     private var pendingUnsavedServerConfiguration: PendingUnsavedServerConfiguration?
 
@@ -160,6 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduleLaunchUpdateCheck()
         configurePushToTalkObservers()
         installRecordingStopKeyMonitor()
+        installMicrophoneMenuKeyMonitor()
         configureUserMenuVisibility()
         // Slight delay so the announcement alert never races the main window.
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
@@ -1697,6 +1699,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.toggleRecording()
             return nil
         }
+    }
+
+    /// The Toggle microphone item's shortcut (⌘⇧A) toggles the microphone here, before the
+    /// menu sees it. A key equivalent that fires a menu item makes AppKit post
+    /// AXMenuItemSelected with the item's title, and VoiceOver speaks it, so every press said
+    /// "Toggle microphone" before "Microphone enabled/muted". Measured with an AX observer:
+    /// ⌥⌘A posted exactly that for "Stream Audio from This Mac…". The item keeps its shortcut
+    /// and still works when chosen from the menu, and it is read live, so a re-bound item is
+    /// followed. The global mute hotkey (Carbon) is untouched: registered on the same chord,
+    /// it takes the key before this monitor or the menu ever see it.
+    private func installMicrophoneMenuKeyMonitor() {
+        microphoneMenuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            // Same conditions as the menu item: a server window, in a channel, no modal run.
+            guard let self,
+                  event.modifierFlags.contains(.command),
+                  NSApp.modalWindow == nil,
+                  self.menuState.mode == .connectedServer,
+                  self.menuState.isInChannel,
+                  let item = self.findMainMenuItem(titled: L10n.text("shortcuts.microphone")),
+                  Self.event(event, matchesKeyEquivalentOf: item) else {
+                return event
+            }
+            self.toggleMicrophone()
+            return nil
+        }
+    }
+
+    /// Whether a key event is the chord a menu item carries, compared the way AppKit does:
+    /// the character (Shift applied, other modifiers not) against the key equivalent, an
+    /// uppercase equivalent implying Shift, and the modifiers exactly — Caps Lock, the
+    /// numeric pad and Fn aside.
+    static func event(_ event: NSEvent, matchesKeyEquivalentOf item: NSMenuItem) -> Bool {
+        let equivalent = item.keyEquivalent
+        guard equivalent.isEmpty == false,
+              let characters = event.charactersIgnoringModifiers else { return false }
+        var expected = item.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask)
+        if equivalent != equivalent.lowercased() { expected.insert(.shift) }
+        let pressed = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad, .function])
+        return characters.lowercased() == equivalent.lowercased() && pressed == expected
     }
 
     /// Toggle recording. When starting, `mode` selects the recording layout as a bitmask
