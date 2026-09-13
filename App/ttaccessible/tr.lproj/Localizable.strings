@@ -653,6 +653,12 @@
 "mediaStream.device.source.applicationMenu" = "Uygulama";
 "mediaStream.device.source.chooseApplication" = "Uygulama Seç…";
 "mediaStream.device.group.applications" = "Uygulamalar";
+"mediaStream.device.group.recent" = "Son kullanılanlar";
+"mediaStream.device.group.devices" = "Aygıtlar";
+"mediaStream.device.search.placeholder" = "Kaynaklarda ara";
+"mediaStream.device.search.one" = "1 kaynak eşleşiyor";
+"mediaStream.device.search.results" = "%ld kaynak eşleşiyor";
+"mediaStream.device.search.none" = "Eşleşen kaynak yok";
 "mediaStream.device.error.sourceUnsupportedOS" = "Bir uygulamanın veya VoiceOver'ın sesini aktarmak için macOS 13 veya sonrası gerekir.";
 "mediaStream.device.error.processSourceUnavailable" = "Seçilen kaynakta şu anda yakalanacak ses yok. Kaynağın çalıştığından emin olun ve yeniden deneyin.";
 "history.mediaStreamingStarted" = "Medya aktarılıyor: %@";
