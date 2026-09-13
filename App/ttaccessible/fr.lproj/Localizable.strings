@@ -640,8 +640,6 @@
 "mediaStream.device.cleared.device" = "%@ décoché.";
 "mediaStream.device.source.checked" = "%@, coché.";
 "mediaStream.device.source.unchecked" = "%@, décoché.";
-"mediaStream.device.summary.applications" = "%ld applications sélectionnées";
-"mediaStream.device.summary.none" = "Aucune source sélectionnée";
 "mediaStream.device.added.application" = "%@ ajoutée et sélectionnée.";
 "mediaStream.device.prompt.start" = "Diffuser";
 "mediaStream.device.prompt.sourceLabel" = "Source audio";
@@ -656,6 +654,12 @@
 "mediaStream.device.source.applicationMenu" = "Application";
 "mediaStream.device.source.chooseApplication" = "Sélectionner une application…";
 "mediaStream.device.group.applications" = "Applications";
+"mediaStream.device.group.recent" = "Utilisées récemment";
+"mediaStream.device.group.devices" = "Périphériques";
+"mediaStream.device.search.placeholder" = "Rechercher une source";
+"mediaStream.device.search.one" = "1 source correspond";
+"mediaStream.device.search.results" = "%ld sources correspondent";
+"mediaStream.device.search.none" = "Aucune source ne correspond";
 "mediaStream.device.error.sourceUnsupportedOS" = "La diffusion de l'audio d'une application ou de VoiceOver nécessite macOS 13 ou version ultérieure.";
 "mediaStream.device.error.processSourceUnavailable" = "La source sélectionnée n'a aucun audio à capturer pour le moment. Vérifiez qu'elle est en cours d'exécution et réessayez.";
 "history.mediaStreamingStarted" = "Diffusion du média : %@";

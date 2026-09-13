@@ -640,8 +640,6 @@
 "mediaStream.device.cleared.device" = "%@ öğesinin işareti kaldırıldı.";
 "mediaStream.device.source.checked" = "%@ işaretlendi.";
 "mediaStream.device.source.unchecked" = "%@ öğesinin işareti kaldırıldı.";
-"mediaStream.device.summary.applications" = "%ld uygulama seçili";
-"mediaStream.device.summary.none" = "Hiçbir şey seçili değil";
 "mediaStream.device.added.application" = "%@ eklendi ve seçildi.";
 "mediaStream.device.prompt.start" = "Kanala Aktar";
 "mediaStream.device.prompt.sourceLabel" = "Ses kaynağı";

@@ -449,10 +449,14 @@ final class AppPreferencesStore: ObservableObject {
         mutate { $0.deviceStreamLastDeviceUID = uid }
     }
 
-    /// Remember the last streamed capture source; devices also keep the legacy
-    /// UID key in sync so older builds retain their preselection.
+    /// Remember the last streamed capture source and put it at the top of the recently used
+    /// ones; devices also keep the legacy UID key in sync so older builds retain their
+    /// preselection.
     func mutateDeviceStreamLastSource(_ spec: DeviceStreamCaptureSpec) {
         mutate { preferences in
+            // Read before the last source is overwritten: it seeds the list the first time.
+            preferences.deviceStreamRecentSources = StreamSourceCatalog.recentTokens(
+                preferences.recentDeviceStreamSources, afterStreaming: spec.persistenceToken)
             preferences.deviceStreamLastSource = spec.persistenceToken
             if case .inputDevice(let device) = spec {
                 preferences.deviceStreamLastDeviceUID = device.uid

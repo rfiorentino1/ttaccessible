@@ -2094,6 +2094,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             voiceOverAvailable: voiceOverAvailable,
             allowsApplicationBrowsing: allowsApplicationBrowsing,
             allowsSystemAudio: allowsSystemAudio,
+            recentTokens: preferencesStore.preferences.recentDeviceStreamSources,
             preselectedToken: preferencesStore.preferences.deviceStreamLastSource
                 ?? preferencesStore.preferences.deviceStreamLastDeviceUID.map { "device:\($0)" },
             fallbackDeviceUID: InputAudioDeviceResolver.defaultInputDeviceUID()

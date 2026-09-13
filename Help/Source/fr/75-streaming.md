@@ -32,11 +32,15 @@ adresses sont retenues.
 ## Diffuser un périphérique, des apps ou VoiceOver
 
 1. Choisissez Raccourcis > Diffuser du son de ce Mac, ou appuyez sur Option + Commande + A.
-2. Ouvrez le menu local **Source audio** et choisissez ce que vous voulez envoyer. **Tout le son de
-   ce Mac** figure en haut, puis vos périphériques d'entrée, puis **VoiceOver**, et vos applications
-   se trouvent dans le sous-menu **Applications**. Choisir une application, VoiceOver ou Tout le son
-   de ce Mac la coche ou la décoche : rouvrez le menu pour en ajouter une autre. Choisir un
-   périphérique le sélectionne seul.
+2. Cochez ce que vous voulez envoyer dans la liste des sources. Elle s'ouvre sur votre choix
+   actuel. **Tout le son de ce Mac** figure en haut, puis trois groupes que vous ouvrez et fermez
+   avec les flèches droite et gauche : **Utilisées récemment**, ouvert d'emblée, **Périphériques**,
+   et **Applications**, qui commence par **VoiceOver**. Appuyez sur Espace pour cocher ou décocher
+   la ligne sur laquelle vous êtes ; avec VoiceOver, VO + Espace fait de même. Pour trouver une
+   source rapidement, tapez une partie de son nom dans le champ **Rechercher une source**, à gauche
+   de la liste : la liste ne garde que les correspondances, ouvre chaque groupe qui en contient et
+   en annonce le nombre. Appuyez sur la flèche bas pour passer du champ de recherche à la première
+   correspondance.
 3. Sélectionnez **Me faire entendre l'audio diffusé** si vous voulez entendre ce que vous envoyez.
    L'option est décochée, pour ne pas vous imposer cette écoute.
 4. Sélectionnez **Couper le son de cette source sur ce Mac pendant la diffusion** pour la faire
@@ -54,13 +58,16 @@ adresses sont retenues.
 - **Un périphérique d'entrée**, qui se diffuse seul : cocher un périphérique décoche les
   applications, et inversement. tt-Accessible vous annonce ce qui vient d'être décoché.
 
-Pour désigner une app qui n'est pas lancée, choisissez **Sélectionner une application…** en bas du
-sous-menu Applications — cela nécessite macOS 14.2 ou une version ultérieure. La diffusion de l'audio d'une app, de VoiceOver ou
+Pour désigner une app qui n'est pas lancée, cliquez sur **Sélectionner une application…**, à côté
+de la liste — cela nécessite macOS 14.2 ou une version ultérieure. L'app est ajoutée au groupe
+Applications, cochée. La diffusion de l'audio d'une app, de VoiceOver ou
 de tout le Mac nécessite macOS 13 ou une version ultérieure.
 
 La diffusion continue même lorsque la source est silencieuse : une pause dans la musique ne
 l'interrompt pas. Votre dernier choix est recoché la fois suivante, même s'il portait sur
-plusieurs applications.
+plusieurs applications. **Utilisées récemment** garde les cinq dernières sources diffusées, la plus
+récente en premier ; une source qui n'est plus disponible, comme un périphérique débranché, n'y
+figure pas.
 
 Si l'app choisie ne produit aucun son, tt-Accessible répond *La source sélectionnée n'a aucun audio
 à capturer pour le moment.*
