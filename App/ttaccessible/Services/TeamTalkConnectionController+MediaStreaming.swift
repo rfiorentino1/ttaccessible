@@ -194,7 +194,7 @@ extension TeamTalkConnectionController {
                 // process matched (app quit, VoiceOver off) — say that, not
                 // "device unplugged".
                 let messageKey: String
-                if case .processes = spec {
+                if spec.includesInputDevice == false {
                     messageKey = "mediaStream.device.error.processSourceUnavailable"
                 } else {
                     messageKey = "mediaStream.device.error.deviceUnavailable"

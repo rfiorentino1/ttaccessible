@@ -634,10 +634,9 @@
 "mediaStream.error.reason.sdkUnsupported" = "TeamTalk bu dosya biçimini açamıyor.";
 "mediaStream.error.reason.tenBitVideo" = "10 bit video desteklenmiyor.";
 "mediaStream.device.prompt.title" = "Bu Mac'teki Sesi Aktar";
-"mediaStream.device.prompt.message" = "Kanala neyin aktarılacağını seçin. Birden çok uygulamayı birlikte işaretleyebilirsiniz; bir aygıt veya bu Mac'teki tüm ses ise tek başına aktarılır. Kaynak sessizken bile akış sürer.";
+"mediaStream.device.prompt.message" = "Kanala neyin aktarılacağını seçin. Birlikte aktarmak istediğiniz aygıtları ve uygulamaları işaretleyin. Bu Mac'teki tüm ses her uygulamayı zaten içerdiğinden yalnızca aygıtlarla birleştirilebilir. Kaynak sessizken bile akış sürer.";
 "mediaStream.device.cleared.applications" = "Uygulamaların işareti kaldırıldı.";
 "mediaStream.device.cleared.systemAudio" = "Bu Mac'teki tüm sesin işareti kaldırıldı.";
-"mediaStream.device.cleared.device" = "%@ öğesinin işareti kaldırıldı.";
 "mediaStream.device.source.checked" = "%@ işaretlendi.";
 "mediaStream.device.source.unchecked" = "%@ öğesinin işareti kaldırıldı.";
 "mediaStream.device.added.application" = "%@ eklendi ve seçildi.";

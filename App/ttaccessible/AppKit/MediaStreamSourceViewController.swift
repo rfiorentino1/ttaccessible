@@ -7,12 +7,12 @@
 //  groups that open and close (Recently used starts open) — a Select Application… button
 //  beside it, the monitor and mute-source options, and Cancel / Stream.
 //
-//  The lines are CHECKBOXES and applications cumulate: both capture backends mix several
-//  processes themselves (see DeviceStreamCaptureSpec.merging), so ticking Music and then
-//  VoiceOver streams both. Devices don't cumulate — a device is captured by an entirely
-//  different backend — so ticking one clears the applications, and vice versa; the same
-//  goes for all-system audio, which already contains everything. Every tick is announced,
-//  clearings included: a line unticking itself elsewhere in the list is invisible.
+//  The lines are CHECKBOXES and any combination streams together: the applications fuse
+//  into one capture (DeviceStreamCaptureSpec.merging), and devices join them through
+//  MixingCaptureBackend (DeviceStreamCaptureSpec.combining). The one exclusion is all audio
+//  from this Mac, which already contains every application: checking it clears the
+//  applications, and checking an application clears it. Every check is announced,
+//  clearings included: a line unchecking itself elsewhere in the list is invisible.
 //
 //  A list rather than the pop-up and Applications submenu it replaces: a submenu popped
 //  from inside a sheet is torn down the instant VoiceOver opens it (measured 2026-09-12:
@@ -75,9 +75,9 @@ final class MediaStreamSourceViewController: NSViewController {
     private let preselectedToken: String?
     private let fallbackDeviceUID: String?
 
-    /// At most one device, any number of applications (VoiceOver counts as
-    /// one), or all system audio — the three are mutually exclusive.
-    private var selectedDevice: InputAudioDeviceInfo?
+    /// Any input devices, plus any number of applications (VoiceOver counts as one) or all
+    /// system audio — those two exclude each other, since it already contains them.
+    private var selectedDevices: [InputAudioDeviceInfo] = []
     private var selectedApplications: [DeviceStreamCaptureSpec] = []
     private var systemAudioSelected = false
 
@@ -187,10 +187,12 @@ final class MediaStreamSourceViewController: NSViewController {
     private func isSelected(_ spec: DeviceStreamCaptureSpec) -> Bool {
         switch spec {
         case .inputDevice(let device):
-            return selectedDevice == device
+            return selectedDevices.contains(device)
         case .processes(let selection):
             if selection.capturesEntireSystem { return systemAudioSelected }
             return selectedApplications.contains(spec)
+        case .combined:
+            return false
         }
     }
 
@@ -496,42 +498,23 @@ final class MediaStreamSourceViewController: NSViewController {
 
         switch spec {
         case .inputDevice(let device):
+            // Devices combine with everything, each other included.
             if selected {
-                if selectedApplications.isEmpty == false {
-                    clearedMessages.append(L10n.text("mediaStream.device.cleared.applications"))
-                    selectedApplications.removeAll()
-                }
-                if systemAudioSelected {
-                    clearedMessages.append(L10n.text("mediaStream.device.cleared.systemAudio"))
-                    systemAudioSelected = false
-                }
-                if let previous = selectedDevice, previous != device {
-                    clearedMessages.append(L10n.format("mediaStream.device.cleared.device", previous.name))
-                }
-                selectedDevice = device
-            } else if selectedDevice == device {
-                selectedDevice = nil
+                if selectedDevices.contains(device) == false { selectedDevices.append(device) }
+            } else {
+                selectedDevices.removeAll { $0 == device }
             }
 
         case .processes(let selection) where selection.capturesEntireSystem:
-            if selected {
-                if let previous = selectedDevice {
-                    clearedMessages.append(L10n.format("mediaStream.device.cleared.device", previous.name))
-                    selectedDevice = nil
-                }
-                if selectedApplications.isEmpty == false {
-                    clearedMessages.append(L10n.text("mediaStream.device.cleared.applications"))
-                    selectedApplications.removeAll()
-                }
+            // All audio from this Mac already contains every application.
+            if selected, selectedApplications.isEmpty == false {
+                clearedMessages.append(L10n.text("mediaStream.device.cleared.applications"))
+                selectedApplications.removeAll()
             }
             systemAudioSelected = selected
 
         case .processes:
             if selected {
-                if let previous = selectedDevice {
-                    clearedMessages.append(L10n.format("mediaStream.device.cleared.device", previous.name))
-                    selectedDevice = nil
-                }
                 if systemAudioSelected {
                     clearedMessages.append(L10n.text("mediaStream.device.cleared.systemAudio"))
                     systemAudioSelected = false
@@ -542,6 +525,10 @@ final class MediaStreamSourceViewController: NSViewController {
             } else {
                 selectedApplications.removeAll { $0 == spec }
             }
+
+        case .combined:
+            // Never a line in the list: a saved combination is restored from its parts.
+            break
         }
 
         refreshSelectionUI()
@@ -590,9 +577,10 @@ final class MediaStreamSourceViewController: NSViewController {
 
     /// The single spec the capture backends consume, or nil when nothing is ticked.
     private var resolvedSpec: DeviceStreamCaptureSpec? {
-        if systemAudioSelected { return .systemAudio() }
-        if let selectedDevice { return .inputDevice(selectedDevice) }
-        return DeviceStreamCaptureSpec.merging(selectedApplications)
+        DeviceStreamCaptureSpec.combining(
+            selectedDevices.map { DeviceStreamCaptureSpec.inputDevice($0) }
+                + (systemAudioSelected ? [.systemAudio()] : selectedApplications)
+        )
     }
 
     /// Every tick is announced explicitly, and so is what a search leaves: neither is

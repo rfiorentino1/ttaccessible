@@ -50,13 +50,15 @@ adresses sont retenues.
 
 ### Ce que vous pouvez cocher
 
-- **Plusieurs applications à la fois.** Votre lecteur de musique et VoiceOver, par exemple, pour
-  que le canal entende ce que vous écoutez et ce que dit votre lecteur d'écran.
-- **Tout le son de ce Mac**, quand désigner les apps une par une n'a pas d'intérêt. Le son de
-  tt-Accessible lui-même est retiré de la capture, sans quoi le canal s'entendrait revenir.
-  Attention : les notifications et les sons du système partent aussi dans le canal.
-- **Un périphérique d'entrée**, qui se diffuse seul : cocher un périphérique décoche les
-  applications, et inversement. tt-Accessible vous annonce ce qui vient d'être décoché.
+- **N'importe quelle combinaison de périphériques et d'applications.** Un micro et votre lecteur
+  de musique, deux interfaces audio, VoiceOver et une app : tout ce que vous cochez est mélangé en
+  une seule diffusion. Chaque périphérique a sa propre horloge ; tt-Accessible les garde en phase,
+  pour qu'une longue diffusion ne se décale pas.
+- **Tout le son de ce Mac**, quand désigner les apps une par une n'a pas d'intérêt. Il se combine
+  avec des périphériques, mais pas avec des applications, qu'il contient déjà : le cocher décoche
+  les applications, et cocher une application le décoche. tt-Accessible vous annonce ce qui vient
+  d'être décoché. Son propre son est retiré de la capture, sans quoi le canal s'entendrait
+  revenir. Attention : les notifications et les sons du système partent aussi dans le canal.
 
 Pour désigner une app qui n'est pas lancée, cliquez sur **Sélectionner une application…**, à côté
 de la liste — cela nécessite macOS 14.2 ou une version ultérieure. L'app est ajoutée au groupe

@@ -46,13 +46,14 @@ The last ten addresses are kept.
 
 ### What you can check
 
-- **Several applications at once.** Your music player and VoiceOver, say, so the channel hears both
-  what you're listening to and what your screen reader is saying.
-- **All audio from this Mac**, when naming the apps one by one isn't worth it. tt-Accessible's own
+- **Any combination of devices and applications.** A microphone and your music player, two audio
+  interfaces, VoiceOver and an app: everything you check is mixed into one stream. Each device runs
+  on its own clock; tt-Accessible keeps them in step, so a long stream doesn't drift apart.
+- **All audio from this Mac**, when naming the apps one by one isn't worth it. It goes with devices,
+  but not with applications, which it already contains: checking it unchecks the applications, and
+  checking an application unchecks it. tt-Accessible announces whatever was just unchecked. Its own
   output is left out of the capture, otherwise the channel would hear itself come back. Be aware
   that notifications and system sounds go out too.
-- **An input device**, which streams on its own: checking a device unchecks the applications, and the
-  other way round. tt-Accessible announces whatever was just unchecked.
 
 To pick an app that isn't running, click **Select Application…**, next to the list — this requires
 macOS 14.2 or later. The app is added to the Applications group, checked.

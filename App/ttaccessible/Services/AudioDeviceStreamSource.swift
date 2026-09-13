@@ -24,6 +24,10 @@ enum DeviceStreamCaptureSpec: Equatable {
     /// VoiceOver's). Captured via CoreAudio process taps on macOS 14.2+ and
     /// ScreenCaptureKit audio on macOS 13.0–14.1; unavailable on macOS 12.
     case processes(ProcessSelection)
+    /// Several sources streamed together: any input devices, plus at most one process
+    /// selection (the chosen applications, or all audio from this Mac). Built by
+    /// `combining(_:)`, which also names it; mixed at capture by MixingCaptureBackend.
+    case combined([DeviceStreamCaptureSpec], displayName: String)
 
     struct ProcessSelection: Equatable {
         /// Bundle-identifier prefixes to capture — prefix matching so an app's
@@ -46,6 +50,7 @@ enum DeviceStreamCaptureSpec: Equatable {
         switch self {
         case .inputDevice(let device): return device.name
         case .processes(let selection): return selection.displayName
+        case .combined(_, let displayName): return displayName
         }
     }
 
@@ -54,6 +59,11 @@ enum DeviceStreamCaptureSpec: Equatable {
         switch self {
         case .inputDevice(let device): return "device:\(device.uid)"
         case .processes(let selection): return selection.persistenceToken
+        case .combined(let parts, _):
+            // One flat "multi:" token, so restoring it rebuilds every part blind.
+            return Self.multiPersistenceTokenPrefix + parts
+                .flatMap { Self.componentTokens(of: $0.persistenceToken) }
+                .joined(separator: Self.multiPersistenceTokenSeparator)
         }
     }
 
@@ -126,6 +136,48 @@ enum DeviceStreamCaptureSpec: Equatable {
             displayName: joinedDisplayName(selections.map(\.displayName)),
             persistenceToken: token
         ))
+    }
+
+    /// The one spec to stream for everything picked: the input devices, plus the
+    /// applications (fused as by `merging`) or all audio from this Mac. A lone source comes
+    /// back as itself; several become `.combined`, mixed at capture. All audio from this Mac
+    /// already contains every application, so when both are picked the applications are
+    /// left out — the picker never offers both.
+    static func combining(_ specs: [DeviceStreamCaptureSpec]) -> DeviceStreamCaptureSpec? {
+        let flat = specs.flatMap { spec -> [DeviceStreamCaptureSpec] in
+            if case .combined(let parts, _) = spec { return parts }
+            return [spec]
+        }
+        var devices: [DeviceStreamCaptureSpec] = []
+        var systemAudio: DeviceStreamCaptureSpec?
+        var applications: [DeviceStreamCaptureSpec] = []
+        for spec in flat {
+            switch spec {
+            case .inputDevice:
+                if devices.contains(spec) == false { devices.append(spec) }
+            case .processes(let selection) where selection.capturesEntireSystem:
+                systemAudio = spec
+            case .processes:
+                if applications.contains(spec) == false { applications.append(spec) }
+            case .combined:
+                break
+            }
+        }
+        let processPart = systemAudio ?? merging(applications)
+        let parts = devices + [processPart].compactMap { $0 }
+        guard parts.count > 1 else { return parts.first }
+        let names = devices.map(\.displayName)
+            + (systemAudio.map { [$0.displayName] } ?? applications.map(\.displayName))
+        return .combined(parts, displayName: joinedDisplayName(names))
+    }
+
+    /// Whether streaming this needs an input device — which failure message fits.
+    var includesInputDevice: Bool {
+        switch self {
+        case .inputDevice: return true
+        case .processes: return false
+        case .combined(let parts, _): return parts.contains { $0.includesInputDevice }
+        }
     }
 
     /// The individual tokens a "multi:" token was built from, in order. Any
@@ -237,6 +289,9 @@ final class AudioDeviceStreamSource {
     /// Start capture and the loopback server. Returns the URL the SDK should stream.
     func start() throws -> URL {
         let backend = try makeBackend()
+        // The mix sits between capture and this ring, where the voice-sync measurement
+        // can't see it.
+        syncClock.setAddedLatency(backend is MixingCaptureBackend ? MixingCaptureBackend.addedLatencySeconds : 0)
         let port = try startServer()
         do {
             try backend.start()
@@ -255,6 +310,18 @@ final class AudioDeviceStreamSource {
     }
 
     private func makeBackend() throws -> DeviceStreamCaptureBackend {
+        try Self.makeBackend(for: spec, ring: ring, muteSourceOutput: muteSourceOutput,
+                             suppressDeviceChanges: suppressDeviceChanges)
+    }
+
+    /// The backend that captures `spec` into `ring`. A combination builds one backend per
+    /// part, each into a ring of its own, and mixes them into `ring`.
+    private static func makeBackend(
+        for spec: DeviceStreamCaptureSpec,
+        ring: PCMRing,
+        muteSourceOutput: Bool,
+        suppressDeviceChanges: ((TimeInterval) -> Void)?
+    ) throws -> DeviceStreamCaptureBackend {
         switch spec {
         case .inputDevice(let device):
             return DeviceInputCaptureBackend(device: device, ring: ring)
@@ -271,6 +338,14 @@ final class AudioDeviceStreamSource {
                 return SCKAudioCaptureBackend(selection: selection, ring: ring)
             }
             throw AudioDeviceStreamSourceError.sourceUnsupportedOnThisOS
+        case .combined(let parts, _):
+            let mixedParts = try parts.map { part -> MixingCaptureBackend.Part in
+                let partRing = PCMRing(capacityFrames: outputSampleRate * 2, channels: outputChannels)
+                let backend = try makeBackend(for: part, ring: partRing, muteSourceOutput: muteSourceOutput,
+                                              suppressDeviceChanges: suppressDeviceChanges)
+                return MixingCaptureBackend.Part(backend: backend, ring: partRing, name: part.displayName)
+            }
+            return MixingCaptureBackend(parts: mixedParts, output: ring)
         }
     }
 
@@ -841,9 +916,18 @@ final class MediaSyncClock {
     private var mediaFrameBase: UInt64 = 0
     private var captureCursorBase: UInt64 = 0
     private var watermark: UInt64 = 0
+    /// Delay between capture and the ring that the ring can't show: set when the stream
+    /// mixes several sources (MixingCaptureBackend.addedLatencySeconds).
+    private var addedLatency: Double = 0
 
     init(ring: AudioDeviceStreamSource.PCMRing) {
         self.ring = ring
+    }
+
+    func setAddedLatency(_ seconds: Double) {
+        lock.lock()
+        addedLatency = seconds
+        lock.unlock()
     }
 
     /// Drop the mapping (publisher changed; next real send republishes).
@@ -877,6 +961,6 @@ final class MediaSyncClock {
         let captureFrame = captureCursorBase - framesBehindBase
         let liveEdge = ring.liveEdge
         guard liveEdge >= captureFrame else { return nil }
-        return Double(liveEdge - captureFrame) / Double(AudioDeviceStreamSource.outputSampleRate)
+        return Double(liveEdge - captureFrame) / Double(AudioDeviceStreamSource.outputSampleRate) + addedLatency
     }
 }

@@ -36,9 +36,8 @@
 </ol>
 <h3 id="what-you-can-check">What you can check</h3>
 <ul>
-<li><strong>Several applications at once.</strong> Your music player and VoiceOver, say, so the channel hears both what you're listening to and what your screen reader is saying.</li>
-<li><strong>All audio from this Mac</strong>, when naming the apps one by one isn't worth it. tt-Accessible's own output is left out of the capture, otherwise the channel would hear itself come back. Be aware that notifications and system sounds go out too.</li>
-<li><strong>An input device</strong>, which streams on its own: checking a device unchecks the applications, and the other way round. tt-Accessible announces whatever was just unchecked.</li>
+<li><strong>Any combination of devices and applications.</strong> A microphone and your music player, two audio interfaces, VoiceOver and an app: everything you check is mixed into one stream. Each device runs on its own clock; tt-Accessible keeps them in step, so a long stream doesn't drift apart.</li>
+<li><strong>All audio from this Mac</strong>, when naming the apps one by one isn't worth it. It goes with devices, but not with applications, which it already contains: checking it unchecks the applications, and checking an application unchecks it. tt-Accessible announces whatever was just unchecked. Its own output is left out of the capture, otherwise the channel would hear itself come back. Be aware that notifications and system sounds go out too.</li>
 </ul>
 <p>To pick an app that isn't running, click <strong>Select Application…</strong>, next to the list — this requires macOS 14.2 or later. The app is added to the Applications group, checked. Streaming the audio of an app, of VoiceOver or of the whole Mac requires macOS 13 or later.</p>
 <p>The stream keeps going even while the source is silent, so a pause in the music doesn't end it. Your last choice is checked again next time, even when it covered several applications. <strong>Recently used</strong> keeps the last five sources you streamed, newest first; a source that isn't available any more, such as an unplugged device, is left out.</p>
