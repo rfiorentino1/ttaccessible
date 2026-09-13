@@ -34,12 +34,19 @@ open ~/Library/Developer/Xcode/DerivedData/ttaccessible-*/Build/Products/Debug/t
 
 `build.sh` re-signs the Xcode-built .app with the `Developer ID Application` cert (the project itself still builds with Apple Development for convenience). Requires the notarytool keychain profile `ttaccessible-notary` to be stored (see notarization setup memory).
 
-An XCTest unit-test target (`ttaccessibleTests`, file-system synchronized group) covers
-pure/deterministic logic only: the gain dB↔% and user-volume↔% curves, `clampGainDB`, and
-Codable migrations of preference structs. Run via the `xcodebuild test` command above.
+The development team comes from `App/Signing.xcconfig`, the base configuration of the project's Debug and Release. To sign with your own Apple Development certificate, put `DEVELOPMENT_TEAM = YOURTEAMID` in `App/Signing.local.xcconfig` (git-ignored, included by `Signing.xcconfig`), never in `project.pbxproj`. No target sets a team: a target-level setting would win over the xcconfig.
 
-The tests deliberately do NOT touch AppKit UI, CoreAudio, or the TeamTalk SDK runtime —
-verify those by building and running the app manually.
+An XCTest unit-test target (`ttaccessibleTests`, file-system synchronized group) covers
+mostly pure/deterministic logic, for example the gain dB↔% and user-volume↔% curves,
+`clampGainDB`, Codable migrations of preference structs, the stream-source selection
+(`DeviceStreamCaptureSpec`, `StreamSourceCatalog`) and `StreamMixer`. Run via the
+`xcodebuild test` command above.
+
+The tests do not drive the running UI: AppKit is touched only to build one control and read
+what it reports (`PressActionTextFieldTests`, `AudioGainControlViewTests`,
+`MicrophoneMenuKeyTests`). `DeviceStreamSourceTests` is a live check: it opens a real input
+device and runs the SDK's media probe on the loopback stream, and skips when no input opens.
+Verify the UI, the audio path and the SDK in a real session by building and running the app.
 
 ## Language
 
@@ -65,7 +72,7 @@ The app wraps the TeamTalk 5 C library (`Vendor/TeamTalk/libTeamTalk5.dylib`) vi
 
 - **`TeamTalkConnectionController`** — Central orchestrator split across 11 extension files (`+Connection`, `+Audio`, `+Messaging`, `+ChannelManagement`, `+Administration`, `+SessionSnapshot`, `+SessionHistory`, `+SessionGuard`, `+Identity`, `+MediaStreaming`, `+Video`). Manages SDK lifecycle, event polling, session state, media file streaming, and stale-session healing during auto-reconnect. `+SessionGuard` surfaces a clean disconnect when the UI still shows a connected server but the SDK instance is gone (e.g. mid auto-reconnect). `+MediaStreaming` / `+Video` wrap `TT_StartStreamingMediaFileToChannel` and media-file probing for audio/video playback into channels.
 - **`AppDelegate`** — Implements `TeamTalkConnectionControllerDelegate`. Owns the connection controller and window lifecycle. Handles global audio device change events.
-- **`ConnectedServerViewController`** — Main UI (AppKit): the channel tree in a sidebar, and the mixer, chat and history in the content pane (`ConnectedServerSplitView`). Split across 7 extension files (`+ChannelActions`, `+UserActions`, `+Announcements`, `+Mixer`, `+OutlineDataSource`, `+OutlineDelegate`, `+TableViewDataDelegate`).
+- **`ConnectedServerViewController`** — Main UI (AppKit): the channel tree in a sidebar, and the output / input / sound effects / media level sliders (`AudioGainControlView`), the mixer, chat and history in the content pane (`ConnectedServerSplitView`, which VoiceOver does not see: the window still reads as one flat list, as it did before the split). Split across 7 extension files (`+ChannelActions`, `+UserActions`, `+Announcements`, `+Mixer`, `+OutlineDataSource`, `+OutlineDelegate`, `+TableViewDataDelegate`).
 - **`AppPreferencesStore`** — `ObservableObject` wrapping `AppPreferences` (Codable struct in UserDefaults with 150ms debounced persistence). Mutate via `mutate { $0.property = value }`.
 - **`AdvancedMicrophoneAudioEngine`** — Dual-path audio capture engine. Uses AVAudioEngine for the system default input device, and a standalone AUHAL AudioUnit for non-default devices (virtual devices, loopback, etc.). Delivers `AdvancedMicrophoneAudioChunk` via callback.
 
@@ -105,7 +112,7 @@ Microphone → [AVAudioEngine OR standalone AUHAL] → Float32 PCM → interleav
 
 **No custom DSP, no Audio Unit plugins** — gate/expander/limiter and AU chain were removed intentionally. The user preferred a clean passthrough (AEC excepted).
 
-**App audio capture** — an application's audio, VoiceOver's, or the whole Mac's can be streamed into the channel: CoreAudio process taps (`ProcessTapCaptureBackend`, macOS 14.2+) or ScreenCaptureKit audio (`SCKAudioCaptureBackend`, macOS 13.0–14.1), feeding the ring in `AudioDeviceStreamSource`. macOS 12 can stream input devices only.
+**App audio capture** — an application's audio, VoiceOver's, or the whole Mac's can be streamed into the channel: CoreAudio process taps (`ProcessTapCaptureBackend`, macOS 14.2+) or ScreenCaptureKit audio (`SCKAudioCaptureBackend`, macOS 13.0–14.1), feeding the ring in `AudioDeviceStreamSource`. Any mix of input devices plus the chosen applications (or the whole Mac) streams together as `DeviceStreamCaptureSpec.combined`: `MixingCaptureBackend` runs each part's backend into a ring of its own and mixes them on a 10 ms wall-clock beat, and `StreamMixer` follows each source's clock by nudging its rate (at most 0.5 %) rather than dropping or padding audio. Sources are picked in `MediaStreamSourceViewController`, a searchable checkbox outline (Recently used, Devices, Applications; list logic in `StreamSourceCatalog`). macOS 12 can stream input devices only.
 
 ### Audio Playback
 
@@ -311,6 +318,9 @@ The main window has a context-aware `NSToolbar` on `SavedServersWindowController
 - **`NSApp.delegate as? AppDelegate` returns nil in SwiftUI apps.** `@NSApplicationDelegateAdaptor` wraps the delegate behind the `NSApplicationDelegate` protocol; the concrete-class cast fails. AppKit code that needs the AppDelegate should fall back to scanning `NSApp.windows` for a `window.delegate` of the expected type (see `SavedServersWindowController.appDelegate`).
 - **`NSLog` arguments are redacted to `<private>` in unified logging.** When debugging, either run the binary directly to read stderr (`~/Library/Developer/Xcode/DerivedData/.../ttaccessible.app/Contents/MacOS/ttaccessible 2>&1 | grep TAG`) or pass `--info` to `log show`.
 - **Dynamic toolbar contents**: keep all possible item identifiers in `toolbarAllowedItemIdentifiers`, return a mode-specific subset from `toolbarDefaultItemIdentifiers`, and call `toolbar.removeItem` + `toolbar.insertItem(withItemIdentifier:at:)` from the mode-change subscriber to rebuild on the fly. Disable `allowsUserCustomization` and `autosavesConfiguration` when the contents are derived from app state — saved configurations would conflict with the runtime rebuild.
+- **A key equivalent that fires a menu item makes VoiceOver speak the item's title** (AppKit posts `AXMenuItemSelected`), before anything the action announces. Either let the title say what the key is about to do — the Cmd+Option+A item reads Stream Audio from This Mac, or Stop Streaming while any stream runs, and does that — or take the chord in a local `NSEvent` key monitor before the menu sees it, as `AppDelegate.installMicrophoneMenuKeyMonitor()` does for Cmd+Shift+A (Toggle microphone). That monitor matches the chord SwiftUI declares as well as whatever the item carries, because `applyMuteMenuShortcut` re-binds the item to the global hotkey's chord.
+- **Taking a container out of the accessibility tree takes overrides, not setters.** A stock `NSHostingView` ignores `setAccessibilityElement(false)` and stays in the tree as an empty `AXHostingView` group, so the mixer's SwiftUI rendering sits in `MixerHostingView`, which overrides `isAccessibilityElement()` and returns no children (VoiceOver uses the overlay laid over it). An ignored `NSSplitView` still leaves its divider, which AppKit synthesises as an accessibility child; `ConnectedServerSplitView` returns `NSAccessibility.unignoredChildren(from: arrangedSubviews)` so the panes' contents rise to the window.
+- **An `NSTextField` given the `AXHeading` role needs its text as its accessibility label too.** With the role alone its text is only its `AXValue`, and VoiceOver announces an empty heading (the stream-source and Move Users sheet titles set both).
 
 ### Sound Packs
 
