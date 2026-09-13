@@ -302,6 +302,19 @@ final class ProcessTapCaptureBackend: DeviceStreamCaptureBackend {
         let matchedIDs = Set(matched.map(\.objectID))
         guard matchedIDs != tappedObjectIDs else { return }
 
+        // A running capture takes the new process set in place: a live tap's description is
+        // settable (AudioHardware.h, kAudioTapPropertyDescription), so the aggregate device
+        // and its IO proc keep running and nothing goes silent. Tearing down and rebuilding
+        // took ~0.6 s (measured 2026-09-13) — a hole in the stream each time a helper process,
+        // a Quick Look preview say, started or stopped playing. The rebuild below stays as
+        // the fallback if the HAL refuses the update.
+        if ioProcID != nil, updateTapProcessesLocked(matched) {
+            AudioLogger.log("process tap: matched process set changed (%d → %d) — updated in place",
+                            tappedObjectIDs.count, matchedIDs.count)
+            tappedObjectIDs = matchedIDs
+            return
+        }
+
         AudioLogger.log("process tap: matched process set changed (%d → %d) — rebuilding capture",
                         tappedObjectIDs.count, matchedIDs.count)
         teardownCaptureLocked()
@@ -340,9 +353,7 @@ final class ProcessTapCaptureBackend: DeviceStreamCaptureBackend {
                             matched.map { "\($0.bundleID)(\($0.pid))" }.joined(separator: " "))
             description = CATapDescription(stereoMixdownOfProcesses: matched.map { $0.objectID })
         }
-        description.name = "ttaccessible-stream-tap"
-        description.isPrivate = true
-        description.muteBehavior = muteLocalOutput ? .mutedWhenTapped : .unmuted
+        applyStreamTapSettings(to: description)
 
         var newTapID = AudioObjectID(kAudioObjectUnknown)
         var status = AudioHardwareCreateProcessTap(description, &newTapID)
@@ -432,6 +443,56 @@ final class ProcessTapCaptureBackend: DeviceStreamCaptureBackend {
         tappedObjectIDs = Set(matched.map(\.objectID))
         AudioLogger.log("process tap: started for %@%@", selection.displayName,
                         muteLocalOutput ? " (source muted locally)" : "")
+    }
+
+    /// Every stream tap: private (not user-visible), named, and muted locally only when the
+    /// user chose to for this stream.
+    private func applyStreamTapSettings(to description: CATapDescription) {
+        description.name = "ttaccessible-stream-tap"
+        description.isPrivate = true
+        description.muteBehavior = muteLocalOutput ? .mutedWhenTapped : .unmuted
+    }
+
+    /// Points the running tap at `matched` without stopping it. False when the HAL refuses,
+    /// or when the change moved the capture's sample rate (the IO thread converts at the rate
+    /// read at build time) — the caller then rebuilds from scratch, as it always did.
+    private func updateTapProcessesLocked(_ matched: [AudioProcessInfo]) -> Bool {
+        guard tapID != AudioObjectID(kAudioObjectUnknown),
+              aggregateDeviceID != AudioObjectID(kAudioObjectUnknown) else { return false }
+        var description = CATapDescription(stereoMixdownOfProcesses: matched.map { $0.objectID })
+        applyStreamTapSettings(to: description)
+        var descriptionAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyDescription,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = withUnsafeMutablePointer(to: &description) { pointer in
+            AudioObjectSetPropertyData(tapID, &descriptionAddress, 0, nil,
+                                       UInt32(MemoryLayout<CATapDescription>.size), pointer)
+        }
+        guard status == noErr else {
+            AudioLogger.log("process tap: in-place update refused status=%d — rebuilding instead", status)
+            return false
+        }
+
+        var inputFormatAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamFormat,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var inputFormatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        var inputFormat = AudioStreamBasicDescription()
+        if AudioObjectGetPropertyData(aggregateDeviceID, &inputFormatAddress, 0, nil, &inputFormatSize, &inputFormat) == noErr,
+           inputFormat.mSampleRate > 0, inputFormat.mSampleRate != capturedSampleRate {
+            AudioLogger.log("process tap: in-place update moved the rate %.0f → %.0f — rebuilding instead",
+                            capturedSampleRate, inputFormat.mSampleRate)
+            return false
+        }
+
+        AudioLogger.log("process tap: now capturing %d process(es) for %@: %@",
+                        matched.count, selection.displayName,
+                        matched.map { "\($0.bundleID)(\($0.pid))" }.joined(separator: " "))
+        return true
     }
 
     private func teardownCaptureLocked() {
