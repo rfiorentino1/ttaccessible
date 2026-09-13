@@ -55,4 +55,29 @@ final class MicrophoneMenuKeyTests: XCTestCase {
         XCTAssertFalse(AppDelegate.event(key("A", [.command, .shift]),
                                          matchesKeyEquivalentOf: item("", [])))
     }
+
+    // The AppKit item can carry the global hotkey's chord (measured: ⌥⌘M in the test host)
+    // while SwiftUI still fires it on ⌘⇧A. Matching only the item's chord is what let the
+    // menu speak "Toggle microphone" anyway.
+
+    func testCommandShiftAStillMatchesWhenTheItemWasRebound() {
+        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(key("A", [.command, .shift]),
+                                                          menuItem: item("m", [.command, .option])))
+    }
+
+    func testCommandShiftAMatchesEvenWithoutTheItem() {
+        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(key("A", [.command, .shift]), menuItem: nil))
+    }
+
+    func testTheReboundChordMatchesToo() {
+        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(key("m", [.command, .option]),
+                                                          menuItem: item("m", [.command, .option])))
+    }
+
+    func testOtherChordsStayWithTheirOwners() {
+        let rebound = item("m", [.command, .option])
+        XCTAssertFalse(AppDelegate.isMicrophoneToggleChord(key("a", [.command]), menuItem: rebound))
+        XCTAssertFalse(AppDelegate.isMicrophoneToggleChord(key("a", [.command, .option]), menuItem: rebound))
+        XCTAssertFalse(AppDelegate.isMicrophoneToggleChord(key("m", [.command]), menuItem: rebound))
+    }
 }

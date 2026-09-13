@@ -1701,14 +1701,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// The Toggle microphone item's shortcut (⌘⇧A) toggles the microphone here, before the
-    /// menu sees it. A key equivalent that fires a menu item makes AppKit post
-    /// AXMenuItemSelected with the item's title, and VoiceOver speaks it, so every press said
-    /// "Toggle microphone" before "Microphone enabled/muted". Measured with an AX observer:
-    /// ⌥⌘A posted exactly that for "Stream Audio from This Mac…". The item keeps its shortcut
-    /// and still works when chosen from the menu, and it is read live, so a re-bound item is
-    /// followed. The global mute hotkey (Carbon) is untouched: registered on the same chord,
-    /// it takes the key before this monitor or the menu ever see it.
+    /// ⌘⇧A toggles the microphone here, before the menu sees it. A key equivalent that fires
+    /// a menu item makes AppKit post AXMenuItemSelected with the item's title, and VoiceOver
+    /// speaks it, so every press said "Toggle microphone" before "Microphone enabled/muted".
+    /// Measured with an AX observer: ⌥⌘A posted exactly that for "Stream Audio from This
+    /// Mac…", and a ⌘⇧A press posted it for Toggle microphone. A local monitor does run
+    /// before the menu (measured in the test host: monitor first, then the item). The item
+    /// keeps its shortcut and still works when chosen from the menu. The global mute hotkey
+    /// (Carbon) is untouched: registered on the same chord, it takes the key first.
     private func installMicrophoneMenuKeyMonitor() {
         microphoneMenuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             // Same conditions as the menu item: a server window, in a channel, no modal run.
@@ -1717,24 +1717,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   NSApp.modalWindow == nil,
                   self.menuState.mode == .connectedServer,
                   self.menuState.isInChannel,
-                  let item = self.findMainMenuItem(titled: L10n.text("shortcuts.microphone")),
-                  Self.event(event, matchesKeyEquivalentOf: item) else {
+                  Self.isMicrophoneToggleChord(
+                      event, menuItem: self.findMainMenuItem(titled: L10n.text("shortcuts.microphone"))
+                  ) else {
                 return event
             }
+            AudioLogger.log("[Hotkey] menu chord toggled the microphone before the menu")
             self.toggleMicrophone()
             return nil
         }
     }
 
-    /// Whether a key event is the chord a menu item carries, compared the way AppKit does:
-    /// the character (Shift applied, other modifiers not) against the key equivalent, an
-    /// uppercase equivalent implying Shift, and the modifiers exactly — Caps Lock, the
-    /// numeric pad and Fn aside.
+    /// The chords that fire the Toggle microphone item: the one SwiftUI declares (⌘⇧A on a
+    /// US layout), and whatever the AppKit item carries at the moment. The two can differ —
+    /// applyMuteMenuShortcut re-binds the item to the global hotkey's chord, and in the test
+    /// host it carried ⌥⌘M while ⌘⇧A still fired the item in the live app — so matching only
+    /// the item's chord missed ⌘⇧A and the menu spoke its title after all.
+    static func isMicrophoneToggleChord(_ event: NSEvent, menuItem: NSMenuItem?) -> Bool {
+        let declared = defaultMuteMenuKeyEquivalent
+        if Self.event(event, matchesKeyEquivalent: declared.characters, modifiers: declared.modifiers) {
+            return true
+        }
+        guard let menuItem else { return false }
+        return Self.event(event, matchesKeyEquivalentOf: menuItem)
+    }
+
     static func event(_ event: NSEvent, matchesKeyEquivalentOf item: NSMenuItem) -> Bool {
-        let equivalent = item.keyEquivalent
+        Self.event(event, matchesKeyEquivalent: item.keyEquivalent, modifiers: item.keyEquivalentModifierMask)
+    }
+
+    /// Whether a key event is a key-equivalent chord, compared the way AppKit does: the
+    /// character (Shift applied, other modifiers not) against the equivalent, an uppercase
+    /// equivalent implying Shift, and the modifiers exactly — Caps Lock, the numeric pad and
+    /// Fn aside.
+    static func event(_ event: NSEvent, matchesKeyEquivalent equivalent: String,
+                      modifiers: NSEvent.ModifierFlags) -> Bool {
         guard equivalent.isEmpty == false,
               let characters = event.charactersIgnoringModifiers else { return false }
-        var expected = item.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask)
+        var expected = modifiers.intersection(.deviceIndependentFlagsMask)
         if equivalent != equivalent.lowercased() { expected.insert(.shift) }
         let pressed = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .numericPad, .function])
