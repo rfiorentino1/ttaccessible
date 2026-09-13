@@ -1628,7 +1628,7 @@ final class ConnectedServerViewController: NSViewController {
                     switch result {
                     case .success(let gateNowOpen):
                         if announceStatus {
-                            self.announce(gateNowOpen
+                            self.announceNow(gateNowOpen
                                 ? L10n.text("connectedServer.audio.voiceEnabled")
                                 : L10n.text("connectedServer.audio.voiceDisabled"))
                         }
@@ -1649,7 +1649,7 @@ final class ConnectedServerViewController: NSViewController {
                 switch result {
                 case .success:
                     if announceStatus {
-                        self.announce(L10n.text("connectedServer.audio.voiceDisabled"))
+                        self.announceNow(L10n.text("connectedServer.audio.voiceDisabled"))
                     }
                 case .failure(let error):
                     self.presentActionError(error)
@@ -1675,7 +1675,7 @@ final class ConnectedServerViewController: NSViewController {
                 switch result {
                 case .success:
                     if announceStatus {
-                        self.announce(L10n.text("connectedServer.audio.voiceEnabled"))
+                        self.announceNow(L10n.text("connectedServer.audio.voiceEnabled"))
                     }
                 case .failure(let error):
                     self.presentActionError(error)
