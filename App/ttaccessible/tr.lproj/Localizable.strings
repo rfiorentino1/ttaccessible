@@ -137,9 +137,9 @@
 "connectedServer.audio.inputGain.label" = "Giriş kazancı";
 "connectedServer.audio.inputGain.accessibilityLabel" = "Mikrofon giriş kazancı";
 "connectedServer.audio.outputGain.label" = "Çıkış ses düzeyi";
-"connectedServer.audio.outputGain.accessibilityLabel" = "Çıkış ses düzeyi";
+"connectedServer.audio.outputGain.accessibilityLabel" = "Ana çıkış ses düzeyi";
 "connectedServer.audio.mediaGain.label" = "Medya ses düzeyi";
-"connectedServer.audio.mediaGain.accessibilityLabel" = "Tüm medya akışlarının ses düzeyi";
+"connectedServer.audio.mediaGain.accessibilityLabel" = "Ana medya ses düzeyi";
 "connectedServer.audio.soundEffectsGain.label" = "Ses efektleri düzeyi";
 "connectedServer.audio.soundEffectsGain.accessibilityLabel" = "Ses efektleri düzeyi";
 "connectedServer.audio.gain.resetAccessibilityAction" = "%50'ye sıfırla";
