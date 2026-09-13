@@ -137,9 +137,9 @@
 "connectedServer.audio.inputGain.label" = "Volume d'entrée";
 "connectedServer.audio.inputGain.accessibilityLabel" = "Volume d'entrée du microphone";
 "connectedServer.audio.outputGain.label" = "Volume de sortie";
-"connectedServer.audio.outputGain.accessibilityLabel" = "Volume de sortie audio";
+"connectedServer.audio.outputGain.accessibilityLabel" = "Volume général de sortie";
 "connectedServer.audio.mediaGain.label" = "Volume des médias";
-"connectedServer.audio.mediaGain.accessibilityLabel" = "Volume de tous les flux médias";
+"connectedServer.audio.mediaGain.accessibilityLabel" = "Volume général des médias";
 "connectedServer.audio.soundEffectsGain.label" = "Volume des effets sonores";
 "connectedServer.audio.soundEffectsGain.accessibilityLabel" = "Volume des effets sonores";
 "connectedServer.audio.gain.resetAccessibilityAction" = "Réinitialiser à 50 %";

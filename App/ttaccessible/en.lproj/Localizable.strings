@@ -137,9 +137,9 @@
 "connectedServer.audio.inputGain.label" = "Input volume";
 "connectedServer.audio.inputGain.accessibilityLabel" = "Microphone input volume";
 "connectedServer.audio.outputGain.label" = "Output volume";
-"connectedServer.audio.outputGain.accessibilityLabel" = "Audio output volume";
+"connectedServer.audio.outputGain.accessibilityLabel" = "Master output volume";
 "connectedServer.audio.mediaGain.label" = "Media volume";
-"connectedServer.audio.mediaGain.accessibilityLabel" = "Volume of every media stream";
+"connectedServer.audio.mediaGain.accessibilityLabel" = "Master media volume";
 "connectedServer.audio.soundEffectsGain.label" = "Sound effects volume";
 "connectedServer.audio.soundEffectsGain.accessibilityLabel" = "Sound effects volume";
 "connectedServer.audio.gain.resetAccessibilityAction" = "Reset to 50%";
