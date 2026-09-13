@@ -32,6 +32,17 @@ final class PressActionTextField: NSTextField {
         speaksToolTipAsHelp ? super.accessibilityHelp() : nil
     }
 
+    /// Whether VoiceOver hears the label as the value too, instead of the text on screen.
+    /// On where the label already says everything the field shows: a channel with a topic
+    /// displays it on a second line, so the value (name, line break, topic) differed from
+    /// the label (name, "Topic:", topic) and VoiceOver read both — the name and topic, then
+    /// the whole row again. When the two match, as on every user row, it reads the row once.
+    var readsLabelAsValue = false
+
+    override func accessibilityValue() -> String? {
+        readsLabelAsValue ? accessibilityLabel() : super.accessibilityValue()
+    }
+
     override func accessibilityPerformPress() -> Bool {
         guard let onPress else { return super.accessibilityPerformPress() }
         onPress()

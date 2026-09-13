@@ -122,6 +122,7 @@ extension ConnectedServerViewController: NSOutlineViewDelegate {
         let accessLabel = accessibilityText(for: node)
         textField.toolTip = accessLabel
         textField.speaksToolTipAsHelp = false
+        textField.readsLabelAsValue = true
         textField.setAccessibilityLabel(accessLabel)
 
         switch node {
