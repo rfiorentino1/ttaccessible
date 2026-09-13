@@ -1595,7 +1595,10 @@ final class ConnectedServerViewController: NSViewController {
     // changed title/state, so skip the redundant spoken status announcement in that case.
     @objc
     func toggleMicrophone(_ sender: Any? = nil) {
-        toggleMicrophone(announceStatus: (sender as AnyObject?) !== microphoneButton)
+        // The button announces like every other route: it no longer carries the audio status
+        // as its value (432eeed), and that value changing was the only thing VoiceOver said
+        // after a press.
+        toggleMicrophone(announceStatus: true)
     }
 
     func toggleMicrophone(announceStatus: Bool) {

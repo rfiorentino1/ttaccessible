@@ -215,7 +215,7 @@ final class SavedServersWindowController: NSWindowController {
     }
 
     @objc fileprivate func toolbarMicrophoneAction(_ sender: Any?) {
-        appDelegate?.toggleMicrophone(fromControl: true)
+        appDelegate?.toggleMicrophone()
     }
 
     @objc fileprivate func toolbarMasterMuteAction(_ sender: Any?) {

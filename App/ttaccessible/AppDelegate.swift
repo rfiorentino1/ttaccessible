@@ -1581,16 +1581,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // `fromControl` is true when triggered by pressing the mic toolbar button itself:
-    // VoiceOver then re-reads the button's state-bearing label, so the spoken status
-    // announcement is suppressed to avoid saying "Microphone" twice. The keyboard
-    // shortcut / menu path (focus elsewhere) keeps the announcement.
-    func toggleMicrophone(fromControl: Bool = false) {
+    // Every route announces "Microphone enabled/muted", the toolbar button included. It used
+    // to stay quiet on the assumption that VoiceOver re-reads the item's state-bearing label;
+    // what actually spoke was the in-window button's audio-status value changing, and once
+    // 432eeed gave that button back its plain title, pressing either control said nothing.
+    func toggleMicrophone() {
         guard menuState.mode == .connectedServer else {
             return
         }
         restoreMainWindow()
-        connectedServerViewController?.performToggleMicrophoneShortcut(announceStatus: fromControl == false)
+        connectedServerViewController?.performToggleMicrophoneShortcut(announceStatus: true)
     }
 
     func changeNickname() {
