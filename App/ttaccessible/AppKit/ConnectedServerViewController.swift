@@ -677,7 +677,15 @@ final class ConnectedServerViewController: NSViewController {
 
         // Only reload the outline when the channel tree or user list changed.
         let treeChanged = previousSession.rootChannels != session.rootChannels
-        if treeChanged || !preserveSelection {
+        if preserveSelection, treeChanged,
+           let changedUserIDs = audioOnlyChangedUserIDs(from: previousSession.rootChannels,
+                                                        to: session.rootChannels) {
+            // Only someone's talking/muted flags moved — your own, above all, when you toggle
+            // the microphone. Redraw those rows in place, as the audio runtime path does: a
+            // full reload collapses, re-expands and re-selects the tree, and VoiceOver then
+            // re-reads whatever row it is on before the "Microphone enabled" announcement.
+            reloadVisibleUserRows(for: changedUserIDs)
+        } else if treeChanged || !preserveSelection {
             let existingSelection = preserveSelection ? currentSelectionKey() ?? selectedKey : nil
             outlineView.reloadData()
             expandCurrentChannelPath()
@@ -941,6 +949,31 @@ final class ConnectedServerViewController: NSViewController {
             return
         }
         outlineView.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(integer: 0))
+    }
+
+    /// The users whose rows need redrawing when a new tree differs from the old one only in
+    /// the flags the audio runtime path already updates in place (talking, muted, media
+    /// muted, video) — found by applying the new tree's flags to the old tree with that same
+    /// path and checking nothing else is left over. Nil when anything else changed (a
+    /// channel, a name, someone arriving or leaving), which needs the full reload.
+    func audioOnlyChangedUserIDs(from old: [ConnectedServerChannel],
+                                 to new: [ConnectedServerChannel]) -> Set<Int32>? {
+        let states = flatChannels(from: new).flatMap(\.users).map { user in
+            (user.id, ConnectedUserAudioState(
+                userID: user.id,
+                isTalking: user.isTalking,
+                isMuted: user.isMuted,
+                isMediaFileMuted: user.isMediaFileMuted,
+                isStreamingMediaFileVideo: user.isStreamingMediaFileVideo
+            ))
+        }
+        var changedUserIDs = Set<Int32>()
+        let patched = updateAudioState(
+            in: old,
+            updates: Dictionary(states, uniquingKeysWith: { first, _ in first }),
+            changedUserIDs: &changedUserIDs
+        )
+        return patched == new ? changedUserIDs : nil
     }
 
     func applyInputGain(_ value: Double) {
