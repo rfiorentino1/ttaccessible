@@ -99,7 +99,9 @@ vous l'écoutez. À 0 %, plus rien ne part.
 
 ## Arrêter la diffusion
 
-Choisissez Raccourcis > Arrêter la diffusion, ou appuyez sur Option + Commande + Point.
+Appuyez de nouveau sur Option + Commande + A, ou choisissez Raccourcis > Arrêter la diffusion :
+pendant une diffusion, Diffuser du son de ce Mac devient Arrêter la diffusion, et arrête de même
+un fichier ou une adresse.
 tt-Accessible annonce *Diffusion terminée*, et le début comme la fin apparaissent dans l'historique
 de session.
 

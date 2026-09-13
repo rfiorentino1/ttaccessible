@@ -92,7 +92,9 @@ listen at. At 0%, nothing goes out.
 
 ## Stop streaming
 
-Choose Shortcuts > Stop Streaming, or press Option-Command-Period. tt-Accessible announces
+Press Option-Command-A again, or choose Shortcuts > Stop Streaming: while a stream is running,
+Stream Audio from This Mac becomes Stop Streaming, and it stops a file or an address just the same.
+tt-Accessible announces
 *Streaming finished*, and both the start and the end appear in the session history.
 
 Everyone subscribed to your media file stream hears it. Each person can silence it without silencing
