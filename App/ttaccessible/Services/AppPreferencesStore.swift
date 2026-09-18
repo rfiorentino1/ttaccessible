@@ -970,7 +970,7 @@ final class AudioPreferencesStore: ObservableObject {
     /// and saving that replaced the choice. Unplugging the Audient with this pane open
     /// left the app on the Mac's speakers after it was plugged back in. It also keeps
     /// a change on one picker from rewriting the other.
-    nonisolated static func preference(
+    static func preference(
         forPickerID pickerID: String,
         saved: AudioDevicePreference,
         devices: [AudioDeviceOption]
@@ -985,7 +985,7 @@ final class AudioPreferencesStore: ObservableObject {
         Self.selectionID(for: preference, devices: devices)
     }
 
-    nonisolated static func selectionID(for preference: AudioDevicePreference, devices: [AudioDeviceOption]) -> String {
+    static func selectionID(for preference: AudioDevicePreference, devices: [AudioDeviceOption]) -> String {
         if preference.usesNoOutput {
             return Self.noOutputDeviceTag
         }
@@ -1060,7 +1060,7 @@ final class AudioPreferencesStore: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
     }
 
-    private nonisolated static func preference(for selectionID: String, devices: [AudioDeviceOption]) -> AudioDevicePreference {
+    private static func preference(for selectionID: String, devices: [AudioDeviceOption]) -> AudioDevicePreference {
         if selectionID == Self.noOutputDeviceTag {
             return .noOutput
         }
