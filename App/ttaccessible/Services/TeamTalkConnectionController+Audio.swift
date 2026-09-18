@@ -1867,7 +1867,18 @@ extension TeamTalkConnectionController {
 
     func processAudioHardwareChangeLocked(selector: UInt32) {
         if Date() < suppressDeviceChangeUntil {
-            AudioLogger.log("processAudioHardwareChange: suppressed")
+            // Look again once the suppression ends rather than dropping the change: a
+            // device replugged while the sound system restarts would otherwise stay
+            // unnoticed until something else changes. The check compares state, so it
+            // does nothing when the suppressed event was our own aggregate churn.
+            AudioLogger.log("processAudioHardwareChange: suppressed, rechecking when it ends")
+            audioHardwareChangeWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.processAudioHardwareChangeLocked(selector: selector)
+            }
+            audioHardwareChangeWorkItem = workItem
+            let delay = max(suppressDeviceChangeUntil.timeIntervalSinceNow, 0) + 0.5
+            queue.asyncAfter(deadline: .now() + delay, execute: workItem)
             return
         }
 
@@ -1882,11 +1893,14 @@ extension TeamTalkConnectionController {
         )
 
         AudioLogger.log(
-            "processAudioHardwareChange: selector=0x%08X needsReinit=%d in=%@ out=%@",
+            "processAudioHardwareChange: selector=0x%08X needsReinit=%d in=%@ out=%@ inID=%@ outEngine=%@ outID=%@",
             selector,
             needsReinit ? 1 : 0,
             current.resolvedInputUID ?? "nil",
-            current.preferredOutputPersistentID ?? "default"
+            current.preferredOutputPersistentID ?? "default",
+            current.inputDeviceObjectID.map { String($0) } ?? "nil",
+            current.outputEngineDeviceUID ?? "nil",
+            current.outputEngineDeviceObjectID.map { String($0) } ?? "nil"
         )
 
         lastAudioRoutingSnapshot = current
@@ -1938,13 +1952,20 @@ extension TeamTalkConnectionController {
             outputInCatalog = true
         }
 
+        let outputEngineDevice = outputPreference.usesNoOutput
+            ? nil
+            : resolveOutputEngineDeviceLocked()
+
         return AudioRoutingSnapshot(
             resolvedInputUID: resolvedInput?.uid,
             defaultInputUID: InputAudioDeviceResolver.defaultInputDeviceUID(),
             defaultOutputUID: InputAudioDeviceResolver.defaultOutputDeviceUID(),
             preferredOutputPersistentID: outputPersistentID,
             outputPersistentIDInCatalog: outputInCatalog,
-            activeInputSampleRate: resolvedInput?.nominalSampleRate ?? 0
+            activeInputSampleRate: resolvedInput?.nominalSampleRate ?? 0,
+            inputDeviceObjectID: resolvedInput.flatMap { InputAudioDeviceResolver.audioDeviceID(forUID: $0.uid) },
+            outputEngineDeviceUID: outputEngineDevice?.uid,
+            outputEngineDeviceObjectID: outputEngineDevice?.deviceID
         )
     }
 
@@ -1955,6 +1976,15 @@ extension TeamTalkConnectionController {
     ) -> Bool {
         guard let previous else {
             return false
+        }
+
+        if Self.openDeviceWentAway(
+            previous: previous,
+            current: current,
+            outputOpen: outputAudioReady,
+            inputOpen: isAnyMicrophoneEngineRunning || inputAudioReady
+        ) {
+            return true
         }
 
         let inputPreference = preferencesStore.preferences.preferredInputDevice
@@ -1998,4 +2028,28 @@ extension TeamTalkConnectionController {
         return false
     }
 
+    /// Whether a device we have open is no longer the one it was: the output engine's
+    /// device is now another device (the preferred one unplugged, so it falls back to
+    /// the default, or plugged back in), or the same device under a new object ID.
+    /// A replug and a coreaudiod restart both hand out new object IDs while every UID
+    /// stays the same, and the stream opened on the old ID is dead: after a restart
+    /// the output stayed silent because nothing else in the snapshot had changed.
+    nonisolated static func openDeviceWentAway(
+        previous: AudioRoutingSnapshot,
+        current: AudioRoutingSnapshot,
+        outputOpen: Bool,
+        inputOpen: Bool
+    ) -> Bool {
+        if outputOpen,
+           previous.outputEngineDeviceUID != current.outputEngineDeviceUID
+            || previous.outputEngineDeviceObjectID != current.outputEngineDeviceObjectID {
+            return true
+        }
+        if inputOpen,
+           previous.resolvedInputUID == current.resolvedInputUID,
+           previous.inputDeviceObjectID != current.inputDeviceObjectID {
+            return true
+        }
+        return false
+    }
 }
