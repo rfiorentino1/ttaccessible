@@ -658,6 +658,12 @@ extension TeamTalkConnectionController {
             }
 
             self.extendDeviceChangeSuppressionLocked(duration: 3.0)
+            // Kept running for the Audio-preferences preview while muted, the engine
+            // is already open on the current devices, so there is nothing new to
+            // snapshot. The snapshot scans every CoreAudio device twice (~22 ms each
+            // on a 24-device rig, measured) on this queue, which also feeds the
+            // preview: the preview lost 65-75 ms at every unmute.
+            let engineWasOpen = self.inputAudioReady
             do {
                 try self.ensureAdvancedMicrophoneInputReadyLocked(instance: instance)
                 self.voiceTransmissionEnabled = true
@@ -667,7 +673,9 @@ extension TeamTalkConnectionController {
                 DispatchQueue.main.async {
                     preferencesStore.updateLastVoiceTransmissionEnabled(true)
                 }
-                self.captureAudioRoutingSnapshotLocked()
+                if engineWasOpen == false {
+                    self.captureAudioRoutingSnapshotLocked()
+                }
                 self.finishOnMain(.success(()), completion: completion)
             } catch {
                 self.finishOnMain(.failure(error), completion: completion)
@@ -684,12 +692,25 @@ extension TeamTalkConnectionController {
                 return
             }
 
-            if self.isAnyMicrophoneEngineRunning || self.inputAudioReady {
-                self.stopAdvancedMicrophoneInputLocked(instance: instance, reason: "deactivateVoiceTransmission")
+            if self.previewMonitorEnabled, self.inputAudioReady {
+                // The Audio-preferences preview is playing this engine: keep it
+                // running and only close the gate, so muting doesn't cut the preview
+                // for the second it takes to reopen a capture. Nothing reaches the
+                // channel — every chunk is gated on voiceTransmissionEnabled — and
+                // the flush ends the SDK's input session as stopping would.
+                // Stopping the preview stops the engine (setPreviewMonitor).
+                AudioLogger.log("deactivateVoiceTransmission: gate closed, engine kept for the preview")
+                self.voiceSyncDelayLine.clear()
+                _ = TT_InsertAudioBlock(instance, nil)
+                self.voiceTransmissionEnabled = false
+            } else {
+                if self.isAnyMicrophoneEngineRunning || self.inputAudioReady {
+                    self.stopAdvancedMicrophoneInputLocked(instance: instance, reason: "deactivateVoiceTransmission")
+                }
+                self.voiceTransmissionEnabled = false
+                self.inputAudioReady = false
+                self.advancedMicrophoneTargetFormat = nil
             }
-            self.voiceTransmissionEnabled = false
-            self.inputAudioReady = false
-            self.advancedMicrophoneTargetFormat = nil
             SoundPlayer.shared.play(.voxMeDisable)
             self.publishSessionLocked(instance: instance, record: record)
 
@@ -1117,6 +1138,9 @@ extension TeamTalkConnectionController {
         inputAudioReady = false
         advancedMicrophoneTargetFormat = nil
         appliedAdvancedInputAudio = nil
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .liveMicrophoneInputStopped, object: nil)
+        }
     }
 
     @available(macOS 14.2, *)
@@ -1191,22 +1215,17 @@ extension TeamTalkConnectionController {
             return
         }
         let inChannel = TT_GetMyChannelID(instance) > 0
-        guard isEffectivelyTransmittingLocked, inChannel else {
-            AudioCaptureDiagnostics.shared.recordInsertAttempt(
-                sampleRate: chunk.sampleRate,
-                accepted: false,
-                gated: true
-            )
-            return
-        }
+        let transmitting = isEffectivelyTransmittingLocked && inChannel
 
         // Local monitor at CAPTURE time — it must stay live even when the
-        // transmit below is voice-sync-delayed. Feed the same processed mic
-        // audio we're transmitting straight into the output mixer — local, no
-        // SDK round-trip. Drives both "hear myself" and the connected-mode
-        // Audio-preferences mic preview (one shared source key, so enabling
-        // both never doubles the audio).
-        if hearMyselfEnabled || previewMonitorEnabled {
+        // transmit below is voice-sync-delayed. Feed the processed mic audio
+        // straight into the output mixer — local, no SDK round-trip. Drives both
+        // "hear myself" and the connected-mode Audio-preferences mic preview (one
+        // shared source key, so enabling both never doubles the audio). Hear
+        // myself is what goes out to the channel, so it follows the transmit
+        // gate; the preview is for checking the mic, so it plays whether or not
+        // the gate is open (push-to-talk released, "both" mode closed).
+        if previewMonitorEnabled || (hearMyselfEnabled && transmitting) {
             outputRenderEngine.enqueueUser(
                 localMonitorEngineKey,
                 pcm: chunk.samples,
@@ -1215,6 +1234,15 @@ extension TeamTalkConnectionController {
                 sampleRate: Double(chunk.sampleRate),
                 profile: .lowLatency
             )
+        }
+
+        guard transmitting else {
+            AudioCaptureDiagnostics.shared.recordInsertAttempt(
+                sampleRate: chunk.sampleRate,
+                accepted: false,
+                gated: true
+            )
+            return
         }
 
         // Voice↔stream sync: while a live-capture media stream runs, outgoing
@@ -1630,12 +1658,52 @@ extension TeamTalkConnectionController {
     /// (the input device is already owned by the live capture, so a second capture
     /// can't open). Shares the local-monitor source with hearMyself. Produces audio
     /// only while the mic is actually capturing/transmitting.
+    /// Turns the preview monitor on if the live microphone engine is running, and
+    /// reports whether it did. When it isn't (muted, or not in a channel), the caller
+    /// opens its own capture: nothing else holds the input device then.
+    func startPreviewMonitorIfLiveMicrophone(completion: @escaping @MainActor (Bool) -> Void) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            var live = self.instance != nil && (self.isAnyMicrophoneEngineRunning || self.inputAudioReady)
+            // Muted in a channel: start the live engine with the gate closed and
+            // preview that, so unmuting and muting again only move the gate and the
+            // preview never drops out. Outside a channel there is no target format
+            // for the engine, and the preview opens its own capture instead.
+            if live == false,
+               let instance = self.instance,
+               TT_GetMyChannelID(instance) > 0,
+               AVCaptureDevice.authorizationStatus(for: .audio) == .authorized {
+                self.previewMonitorEnabled = true
+                do {
+                    try self.ensureAdvancedMicrophoneInputReadyLocked(instance: instance)
+                    AudioLogger.log("preview: live engine started muted for the preview")
+                    live = true
+                } catch {
+                    AudioLogger.log("preview: live engine start failed — %@", error.localizedDescription)
+                    self.previewMonitorEnabled = false
+                }
+            }
+            if live { self.previewMonitorEnabled = true }
+            DispatchQueue.main.async { completion(live) }
+        }
+    }
+
     func setPreviewMonitor(_ enabled: Bool) {
         queue.async { [weak self] in
             guard let self else { return }
             self.previewMonitorEnabled = enabled
             if enabled == false && self.hearMyselfEnabled == false {
                 self.outputRenderEngine.removeUser(self.localMonitorEngineKey)
+            }
+            // An engine kept running only for the preview (muted, "both" mode not
+            // arming it) goes when the preview does.
+            if enabled == false,
+               self.voiceTransmissionEnabled == false,
+               let instance = self.instance,
+               self.isAnyMicrophoneEngineRunning || self.inputAudioReady {
+                self.stopAdvancedMicrophoneInputLocked(instance: instance, reason: "preview stopped while muted")
+                self.inputAudioReady = false
+                self.advancedMicrophoneTargetFormat = nil
             }
         }
     }
