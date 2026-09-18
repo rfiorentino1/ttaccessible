@@ -944,8 +944,12 @@ final class AudioPreferencesStore: ObservableObject {
     }
 
     func updateSelectedDevices(inputID: String, outputID: String) {
-        let inputPreference = preference(for: inputID, devices: state.catalog.inputDevices)
-        let outputPreference = preference(for: outputID, devices: state.catalog.outputDevices)
+        let inputPreference = Self.preference(
+            forPickerID: inputID, saved: state.preferredInputDevice, devices: state.catalog.inputDevices
+        )
+        let outputPreference = Self.preference(
+            forPickerID: outputID, saved: state.preferredOutputDevice, devices: state.catalog.outputDevices
+        )
 
         guard inputPreference != state.preferredInputDevice || outputPreference != state.preferredOutputDevice else {
             return
@@ -960,7 +964,28 @@ final class AudioPreferencesStore: ObservableObject {
         )
     }
 
+    /// What a device picker's value means for the saved preference. A picker showing
+    /// exactly what the saved preference maps to today changes nothing: while the
+    /// chosen device is unplugged it has no row, so the picker shows System Default,
+    /// and saving that replaced the choice. Unplugging the Audient with this pane open
+    /// left the app on the Mac's speakers after it was plugged back in. It also keeps
+    /// a change on one picker from rewriting the other.
+    nonisolated static func preference(
+        forPickerID pickerID: String,
+        saved: AudioDevicePreference,
+        devices: [AudioDeviceOption]
+    ) -> AudioDevicePreference {
+        if pickerID == selectionID(for: saved, devices: devices) {
+            return saved
+        }
+        return preference(for: pickerID, devices: devices)
+    }
+
     func selectionID(for preference: AudioDevicePreference, devices: [AudioDeviceOption]) -> String {
+        Self.selectionID(for: preference, devices: devices)
+    }
+
+    nonisolated static func selectionID(for preference: AudioDevicePreference, devices: [AudioDeviceOption]) -> String {
         if preference.usesNoOutput {
             return Self.noOutputDeviceTag
         }
@@ -1035,7 +1060,7 @@ final class AudioPreferencesStore: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
     }
 
-    private func preference(for selectionID: String, devices: [AudioDeviceOption]) -> AudioDevicePreference {
+    private nonisolated static func preference(for selectionID: String, devices: [AudioDeviceOption]) -> AudioDevicePreference {
         if selectionID == Self.noOutputDeviceTag {
             return .noOutput
         }
