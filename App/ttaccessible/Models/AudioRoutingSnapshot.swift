@@ -15,4 +15,13 @@ struct AudioRoutingSnapshot: Equatable {
     var preferredOutputPersistentID: String?
     var outputPersistentIDInCatalog: Bool
     var activeInputSampleRate: Double
+    /// CoreAudio object ID of the resolved input device. A device keeps its UID when
+    /// it is unplugged and replugged or when coreaudiod restarts, but comes back under
+    /// a new object ID, and the stream opened on the old one is dead.
+    var inputDeviceObjectID: UInt32?
+    /// The device the output render engine binds to (the preference, or the system
+    /// default when the preferred device is missing), by UID and object ID. Nil when
+    /// the preference is no output.
+    var outputEngineDeviceUID: String?
+    var outputEngineDeviceObjectID: UInt32?
 }
