@@ -10,6 +10,7 @@
 import XCTest
 @testable import ttaccessible
 
+@MainActor
 final class DevicePickerPreferenceTests: XCTestCase {
 
     private let audient = AudioDeviceOption(id: "audient", persistentID: "audient", displayName: "Audient iD44")
