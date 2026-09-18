@@ -70,4 +70,45 @@ final class PressActionTextFieldTests: XCTestCase {
         field.setAccessibilityLabel(rowText)
         XCTAssertEqual(field.stringValue, shownText)
     }
+
+    // Matching the value was not enough: VoiceOver also fetches the text by character
+    // range, which still gave the two shown lines, so topic rows were read twice still.
+    // Measured on the live tree: AXStringForRange differed from the label on every topic
+    // row and on no other row.
+
+    /// What VoiceOver gets when it asks for the text by range. The element it talks to
+    /// is the field's cell, through the attribute API, so ask exactly that.
+    private func rangeText(of field: PressActionTextField, _ range: NSRange) -> String? {
+        let cell = field.cell as NSObject?
+        return cell?.accessibilityAttributeValue(.stringForRange, forParameter: NSValue(range: range)) as? String
+    }
+
+    private func characterCount(of field: PressActionTextField) -> Int? {
+        (field.cell as NSObject?)?.accessibilityAttributeValue(.numberOfCharacters) as? Int
+    }
+
+    /// Proves the override sits on the path VoiceOver uses: by default the range text is
+    /// the text on screen.
+    func testTheRangeTextIsTheShownTextByDefault() {
+        let field = PressActionTextField(labelWithString: shownText)
+        field.setAccessibilityLabel(rowText)
+        XCTAssertEqual(rangeText(of: field, NSRange(location: 0, length: (shownText as NSString).length)), shownText)
+    }
+
+    func testATopicRowsRangeTextIsItsLabel() {
+        let field = PressActionTextField(labelWithString: shownText)
+        field.readsLabelAsValue = true
+        field.setAccessibilityLabel(rowText)
+        let length = (rowText as NSString).length
+        XCTAssertEqual(characterCount(of: field), length)
+        XCTAssertEqual(rangeText(of: field, NSRange(location: 0, length: length)), rowText)
+    }
+
+    func testARangePastTheEndIsClipped() {
+        let field = PressActionTextField(labelWithString: shownText)
+        field.readsLabelAsValue = true
+        field.setAccessibilityLabel(rowText)
+        XCTAssertEqual(rangeText(of: field, NSRange(location: 4, length: 10_000)),
+                       (rowText as NSString).substring(from: 4))
+    }
 }
