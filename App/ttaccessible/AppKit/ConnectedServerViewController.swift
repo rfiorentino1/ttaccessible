@@ -37,7 +37,15 @@ final class PressActionTextField: NSTextField {
     /// displays it on a second line, so the value (name, line break, topic) differed from
     /// the label (name, "Topic:", topic) and VoiceOver read both — the name and topic, then
     /// the whole row again. When the two match, as on every user row, it reads the row once.
+    /// The text VoiceOver fetches by character range must match too: fixing the value alone
+    /// left the range text (name, line break, topic) and topic rows still read twice.
+    /// VoiceOver asks the cell for that text, so the cell below serves the label there.
     var readsLabelAsValue = false
+
+    override class var cellClass: AnyClass? {
+        get { PressActionTextFieldCell.self }
+        set {}
+    }
 
     override func accessibilityValue() -> String? {
         readsLabelAsValue ? accessibilityLabel() : super.accessibilityValue()
@@ -47,6 +55,39 @@ final class PressActionTextField: NSTextField {
         guard let onPress else { return super.accessibilityPerformPress() }
         onPress()
         return true
+    }
+}
+
+/// The accessibility element behind a `PressActionTextField` is its cell, and the cell is
+/// what VoiceOver asks for the text by character range. When the field reads its label as
+/// its value, the cell gives that same label here instead of the text on screen.
+final class PressActionTextFieldCell: NSTextFieldCell {
+    private var rowLabel: String? {
+        guard let field = controlView as? PressActionTextField, field.readsLabelAsValue else { return nil }
+        return field.accessibilityLabel() ?? ""
+    }
+
+    // NSTextFieldCell answers VoiceOver through the attribute API, not the NSAccessibility
+    // methods (overriding those changed nothing, measured), so the text is served here.
+    override func accessibilityAttributeValue(_ attribute: NSAccessibility.Attribute) -> Any? {
+        guard let label = rowLabel as NSString? else { return super.accessibilityAttributeValue(attribute) }
+        switch attribute {
+        case .numberOfCharacters:
+            return label.length
+        case .visibleCharacterRange:
+            return NSValue(range: NSRange(location: 0, length: label.length))
+        default:
+            return super.accessibilityAttributeValue(attribute)
+        }
+    }
+
+    override func accessibilityAttributeValue(_ attribute: NSAccessibility.ParameterizedAttribute, forParameter parameter: Any?) -> Any? {
+        guard let label = rowLabel as NSString?,
+              attribute == .stringForRange || attribute == .attributedStringForRange,
+              let range = (parameter as? NSValue)?.rangeValue
+        else { return super.accessibilityAttributeValue(attribute, forParameter: parameter) }
+        let text = label.substring(with: NSIntersectionRange(range, NSRange(location: 0, length: label.length)))
+        return attribute == .stringForRange ? text : NSAttributedString(string: text)
     }
 }
 
