@@ -2146,7 +2146,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         controller.onStream = { [weak self] spec, monitorEnabled, muteSourceOutput in
             guard let self else { return }
-            self.preferencesStore.mutateDeviceStreamLastSource(spec)
             self.connectionController.startStreamingCaptureSource(
                 spec: spec,
                 monitorEnabled: monitorEnabled,
@@ -2155,7 +2154,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     switch result {
                     case .success:
-                        break
+                        // Remembered once it streams, like a stream URL: a source that failed
+                        // to start never joins Recently used.
+                        self?.preferencesStore.mutateDeviceStreamLastSource(spec)
                     case .failure(let error):
                         self?.announceWithVoiceOver(L10n.text("mediaStream.announced.error"))
                         NSAlert(error: error).runModal()
