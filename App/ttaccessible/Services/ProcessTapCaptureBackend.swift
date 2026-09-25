@@ -164,7 +164,7 @@ final class ProcessTapCaptureBackend: DeviceStreamCaptureBackend {
     }()
 
     /// Our own HAL processes — what a system-wide tap must leave out.
-    private static func ownAudioProcessObjectIDs() -> [AudioObjectID] {
+    static func ownAudioProcessObjectIDs() -> [AudioObjectID] {
         guard let ownBundleID = Bundle.main.bundleIdentifier else { return [] }
         let ownPID = ProcessInfo.processInfo.processIdentifier
         return audioProcesses()
@@ -453,25 +453,44 @@ final class ProcessTapCaptureBackend: DeviceStreamCaptureBackend {
         description.muteBehavior = muteLocalOutput ? .mutedWhenTapped : .unmuted
     }
 
-    /// Points the running tap at `matched` without stopping it. False when the HAL refuses,
-    /// or when the change moved the capture's sample rate (the IO thread converts at the rate
-    /// read at build time) — the caller then rebuilds from scratch, as it always did.
+    /// Points the running tap at `matched` without stopping it. It edits the tap's own
+    /// description rather than a new one: a new CATapDescription carries a new random UUID,
+    /// and that UUID is the tap's UID, the key the aggregate device holds it by. The UID is
+    /// read before and after to prove it held. False when the HAL refuses, when the UID
+    /// moved, or when the change moved the capture's sample rate (the IO thread converts at
+    /// the rate read at build time) — the caller then rebuilds from scratch, as it always did.
     private func updateTapProcessesLocked(_ matched: [AudioProcessInfo]) -> Bool {
         guard tapID != AudioObjectID(kAudioObjectUnknown),
               aggregateDeviceID != AudioObjectID(kAudioObjectUnknown) else { return false }
-        var description = CATapDescription(stereoMixdownOfProcesses: matched.map { $0.objectID })
-        applyStreamTapSettings(to: description)
         var descriptionAddress = AudioObjectPropertyAddress(
             mSelector: kAudioTapPropertyDescription,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
+        var descriptionSize = UInt32(MemoryLayout<Unmanaged<CATapDescription>?>.size)
+        var current: Unmanaged<CATapDescription>?
+        guard AudioObjectGetPropertyData(tapID, &descriptionAddress, 0, nil, &descriptionSize, &current) == noErr,
+              let described = current?.takeRetainedValue() else {
+            AudioLogger.log("process tap: couldn't read the tap's description — rebuilding instead")
+            return false
+        }
+        let uidBefore = tapUIDLocked()
+
+        var description = described
+        description.processes = matched.map { $0.objectID }
         let status = withUnsafeMutablePointer(to: &description) { pointer in
             AudioObjectSetPropertyData(tapID, &descriptionAddress, 0, nil,
                                        UInt32(MemoryLayout<CATapDescription>.size), pointer)
         }
         guard status == noErr else {
             AudioLogger.log("process tap: in-place update refused status=%d — rebuilding instead", status)
+            return false
+        }
+
+        let uidAfter = tapUIDLocked()
+        guard let uidBefore, uidBefore == uidAfter else {
+            AudioLogger.log("process tap: in-place update changed the tap's UID %@ → %@ — rebuilding instead",
+                            uidBefore ?? "?", uidAfter ?? "?")
             return false
         }
 
@@ -489,10 +508,23 @@ final class ProcessTapCaptureBackend: DeviceStreamCaptureBackend {
             return false
         }
 
-        AudioLogger.log("process tap: now capturing %d process(es) for %@: %@",
-                        matched.count, selection.displayName,
+        AudioLogger.log("process tap: updated in place (UID %@ kept), now capturing %d process(es) for %@: %@",
+                        uidAfter ?? "?", matched.count, selection.displayName,
                         matched.map { "\($0.bundleID)(\($0.pid))" }.joined(separator: " "))
         return true
+    }
+
+    /// The running tap's UID, or nil when it can't be read.
+    private func tapUIDLocked() -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        var uid: Unmanaged<CFString>?
+        guard AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, &uid) == noErr else { return nil }
+        return uid?.takeRetainedValue() as String?
     }
 
     private func teardownCaptureLocked() {
