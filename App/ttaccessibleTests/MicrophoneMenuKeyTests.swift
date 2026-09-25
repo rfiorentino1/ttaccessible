@@ -5,7 +5,8 @@
 //  ⌘⇧A toggles the microphone from a key monitor instead of through the menu, because a
 //  menu key equivalent makes VoiceOver say the item's title ("Toggle microphone") first.
 //  The monitor must fire on exactly the chord the menu item carries and nothing else, or it
-//  would steal a neighbouring shortcut (⌘A, ⌥⌘A) or miss the real one.
+//  would steal a neighbouring shortcut (⌘A, ⌥⌘A) or miss the real one, and it must leave
+//  the chord to a hotkey recorder that is capturing one.
 //
 
 import AppKit
@@ -60,13 +61,30 @@ final class MicrophoneMenuKeyTests: XCTestCase {
     // while SwiftUI still fires it on ⌘⇧A. Matching only the item's chord is what let the
     // menu speak "Toggle microphone" anyway.
 
+    /// ⌘⇧ and whatever the key that types "a" on a US layout types on this one — "A" on
+    /// QWERTY and AZERTY, something else on Russian, Greek or Hebrew — as the event carries it.
+    private var declaredChord: NSEvent {
+        let declared = AppDelegate.defaultMuteMenuKeyEquivalent
+        return key(declared.characters.uppercased(), declared.modifiers)
+    }
+
     func testCommandShiftAStillMatchesWhenTheItemWasRebound() {
-        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(key("A", [.command, .shift]),
-                                                          menuItem: item("m", [.command, .option])))
+        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(declaredChord, menuItem: item("m", [.command, .option])))
     }
 
     func testCommandShiftAMatchesEvenWithoutTheItem() {
-        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(key("A", [.command, .shift]), menuItem: nil))
+        XCTAssertTrue(AppDelegate.isMicrophoneToggleChord(declaredChord, menuItem: nil))
+    }
+
+    // The monitor stands down while a hotkey recorder in Preferences captures a chord.
+
+    func testARecordingHotkeyFieldIsSeenAppWide() {
+        let session = KeyCaptureSession()
+        XCTAssertFalse(KeyCaptureSession.anyRecording)
+        session.begin { _ in }
+        XCTAssertTrue(KeyCaptureSession.anyRecording)
+        session.cancel()
+        XCTAssertFalse(KeyCaptureSession.anyRecording)
     }
 
     func testTheReboundChordMatchesToo() {
