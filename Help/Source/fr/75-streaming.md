@@ -54,7 +54,8 @@ adresses sont retenues.
 - **N'importe quelle combinaison de périphériques et d'applications.** Un micro et votre lecteur
   de musique, deux interfaces audio, VoiceOver et une app : tout ce que vous cochez est mélangé en
   une seule diffusion. Chaque périphérique a sa propre horloge ; tt-Accessible les garde en phase,
-  pour qu'une longue diffusion ne se décale pas.
+  pour qu'une longue diffusion ne se décale pas. Quand des sources fortes s'additionnent au-delà de
+  ce que la diffusion peut porter, les crêtes sont adoucies au lieu de saturer.
 - **Tout le son de ce Mac**, quand désigner les apps une par une n'a pas d'intérêt. Il se combine
   avec des périphériques, mais pas avec des applications, qu'il contient déjà : le cocher décoche
   les applications, et cocher une application le décoche. tt-Accessible vous annonce ce qui vient

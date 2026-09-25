@@ -49,7 +49,9 @@ The last ten addresses are kept.
 
 - **Any combination of devices and applications.** A microphone and your music player, two audio
   interfaces, VoiceOver and an app: everything you check is mixed into one stream. Each device runs
-  on its own clock; tt-Accessible keeps them in step, so a long stream doesn't drift apart.
+  on its own clock; tt-Accessible keeps them in step, so a long stream doesn't drift apart. When
+  loud sources add up to more than the stream can carry, the peaks are eased down instead of
+  distorting.
 - **All audio from this Mac**, when naming the apps one by one isn't worth it. It goes with devices,
   but not with applications, which it already contains: checking it unchecks the applications, and
   checking an application unchecks it. tt-Accessible announces whatever was just unchecked. Its own
