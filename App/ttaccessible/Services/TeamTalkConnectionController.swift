@@ -269,6 +269,11 @@ final class TeamTalkConnectionController {
     var suppressDeviceChangeUntil = Date.distantPast
     var audioHardwareChangeWorkItem: DispatchWorkItem?
     var lastAudioRoutingSnapshot: AudioRoutingSnapshot?
+    /// Set when the chosen microphone went away and the restart couldn't bring it back:
+    /// whether voice was on. The microphone comes back, as it was, when that device is
+    /// plugged in again (audioRouteReaction). Cleared once a microphone starts, or when
+    /// the user mutes meanwhile.
+    var microphoneAwaitingInputDevice: Bool?
     var lastAutoAwayCheckTime: CFAbsoluteTime = 0
     var isAutoAwayActive = false
     var autoAwayActivationTime: Date?
