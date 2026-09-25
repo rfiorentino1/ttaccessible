@@ -415,6 +415,7 @@
 "preferences.audio.inputDevice" = "Périphérique d'entrée";
 "preferences.audio.systemDefault" = "Par défaut du système";
 "preferences.audio.noOutput" = "Aucune sortie audio";
+"preferences.audio.device.notConnected" = "%@ (non connecté)";
 "preferences.audio.advanced.title" = "Microphone";
 "preferences.audio.advanced.summary.active" = "%@, %@.";
 "preferences.audio.advanced.summary.processingNone" = "aucun traitement";

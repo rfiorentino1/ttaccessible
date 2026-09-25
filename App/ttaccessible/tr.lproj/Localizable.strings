@@ -415,6 +415,7 @@
 "preferences.audio.inputDevice" = "Giriş aygıtı";
 "preferences.audio.systemDefault" = "Sistem varsayılanı";
 "preferences.audio.noOutput" = "Çıkış aygıtı yok";
+"preferences.audio.device.notConnected" = "%@ (bağlı değil)";
 "preferences.audio.advanced.title" = "Mikrofon";
 "preferences.audio.advanced.summary.active" = "%@, %@.";
 "preferences.audio.advanced.summary.processingNone" = "işleme yok";
