@@ -80,4 +80,22 @@ struct StreamSourceCatalog: Equatable {
         }
         return Array(result.prefix(recentLimit))
     }
+
+    /// The groups to open so every checked source is on a line the user can reach: a checked
+    /// source tucked inside a closed group would stream without anyone knowing it was chosen.
+    /// A source already shown by an open Recently used, or on the all-audio line, needs none.
+    func groupsRevealing(_ checked: [DeviceStreamCaptureSpec], open: Set<Group>) -> Set<Group> {
+        var groups = open
+        for spec in checked where spec != systemAudio {
+            if groups.contains(.recent), recent.contains(spec) { continue }
+            if devices.contains(spec) {
+                groups.insert(.devices)
+            } else if applications.contains(spec) {
+                groups.insert(.applications)
+            } else if recent.contains(spec) {
+                groups.insert(.recent)
+            }
+        }
+        return groups
+    }
 }
