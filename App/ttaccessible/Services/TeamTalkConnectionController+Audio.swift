@@ -1680,13 +1680,15 @@ extension TeamTalkConnectionController {
         }
     }
 
-    /// Connected-mode mic preview: monitor the live mic through the output engine
-    /// (the input device is already owned by the live capture, so a second capture
-    /// can't open). Shares the local-monitor source with hearMyself. Produces audio
-    /// only while the mic is actually capturing/transmitting.
-    /// Turns the preview monitor on if the live microphone engine is running, and
-    /// reports whether it did. When it isn't (muted, or not in a channel), the caller
-    /// opens its own capture: nothing else holds the input device then.
+    /// Connected-mode mic preview: monitor the live mic through the output engine (the
+    /// input device is owned by the live capture, so a second capture can't open). Shares
+    /// the local-monitor source with hearMyself, and is fed before the transmit gate, so it
+    /// plays while muted too.
+    ///
+    /// Turns the preview monitor on and reports whether it did: when the live engine is
+    /// running, or when muted in a channel, where it starts the engine with the gate
+    /// closed. Otherwise (disconnected, or outside a channel, where the engine has no
+    /// target format) it reports false and the caller opens its own capture.
     func startPreviewMonitorIfLiveMicrophone(completion: @escaping @MainActor (Bool) -> Void) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -1714,6 +1716,8 @@ extension TeamTalkConnectionController {
         }
     }
 
+    /// Turns the preview monitor on or off. Off, it also stops an engine that was running
+    /// only for the preview (muted: started by startPreviewMonitorIfLiveMicrophone).
     func setPreviewMonitor(_ enabled: Bool) {
         queue.async { [weak self] in
             guard let self else { return }
