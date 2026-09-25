@@ -495,7 +495,14 @@ final class A11yVirtualGridOverlayView: NSView, MixerRegionAnnouncing {
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
     override func accessibilityRoleDescription() -> String? { areaRoleDescription }
-    override func accessibilityLabel() -> String? { MainActor.assumeIsolated { regionPrefixed(areaLabel) } }
+    /// With no strips, the area says why it is empty: the visible "No other users in this
+    /// channel" sits in the hidden SwiftUI rendering, and Command-5 in an empty channel
+    /// read only "Channel Mixer, Mixer, area".
+    override func accessibilityLabel() -> String? {
+        MainActor.assumeIsolated {
+            regionPrefixed(virtualStrips.isEmpty ? "\(areaLabel), \(L10n.text("mixer.empty"))" : areaLabel)
+        }
+    }
     override func accessibilityChildren() -> [Any]? { virtualStrips.isEmpty ? nil : virtualStrips }
 
     func configure(areaLabel: String, areaRoleDescription: String,
