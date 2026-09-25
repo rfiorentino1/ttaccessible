@@ -447,7 +447,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// ⌘⇧ + whatever key types "a" on the current layout, matching what the
     /// SwiftUI declaration means (key codes are positional; the character is not).
-    private static var defaultMuteMenuKeyEquivalent: (characters: String, modifiers: NSEvent.ModifierFlags) {
+    static var defaultMuteMenuKeyEquivalent: (characters: String, modifiers: NSEvent.ModifierFlags) {
         HotkeyBinding.defaultMuteHotkey().menuKeyEquivalent ?? ("a", [.command, .shift])
     }
 
@@ -1713,9 +1713,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (Carbon) is untouched: registered on the same chord, it takes the key first.
     private func installMicrophoneMenuKeyMonitor() {
         microphoneMenuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            // Same conditions as the menu item: a server window, in a channel, no modal run.
+            // Same conditions as the menu item: connected, in a channel, no modal run — and
+            // never while a hotkey recorder in Preferences is capturing the next chord, which
+            // is the recorder's to take (before this monitor it was the only one).
             guard let self,
                   event.modifierFlags.contains(.command),
+                  KeyCaptureSession.anyRecording == false,
                   NSApp.modalWindow == nil,
                   self.menuState.mode == .connectedServer,
                   self.menuState.isInChannel,
