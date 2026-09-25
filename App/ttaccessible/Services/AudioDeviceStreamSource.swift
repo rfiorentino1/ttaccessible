@@ -10,7 +10,11 @@ import CoreAudio
 import Network
 
 enum AudioDeviceStreamSourceError: Error {
+    /// An input device is gone.
     case deviceUnavailable
+    /// No capturable process matched an application source (app quit, VoiceOver off). Kept
+    /// apart from `deviceUnavailable` so a combination names the part that failed.
+    case processSourceUnavailable
     case captureStartFailed
     case serverStartFailed
     case sourceUnsupportedOnThisOS
@@ -175,15 +179,6 @@ enum DeviceStreamCaptureSpec: Equatable {
         let names = devices.map(\.displayName)
             + (systemAudio.map { [$0.displayName] } ?? applications.map(\.displayName))
         return .combined(parts, displayName: joinedDisplayName(names))
-    }
-
-    /// Whether streaming this needs an input device — which failure message fits.
-    var includesInputDevice: Bool {
-        switch self {
-        case .inputDevice: return true
-        case .processes: return false
-        case .combined(let parts, _): return parts.contains { $0.includesInputDevice }
-        }
     }
 
     /// The individual tokens a "multi:" token was built from, in order. Any

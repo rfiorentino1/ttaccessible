@@ -122,9 +122,4 @@ final class DeviceStreamCaptureSpecTests: XCTestCase {
         XCTAssertEqual(DeviceStreamCaptureSpec.componentTokens(of: "multi:device:BuiltInMic+app:com.apple.Music"),
                        ["device:BuiltInMic", "app:com.apple.Music"])
     }
-
-    func testOnlyCombinationsWithADeviceCountAsNeedingOne() {
-        XCTAssertTrue(DeviceStreamCaptureSpec.combining([mic, music])?.includesInputDevice ?? false)
-        XCTAssertFalse(DeviceStreamCaptureSpec.combining([music, .voiceOver()])?.includesInputDevice ?? true)
-    }
 }
