@@ -2144,8 +2144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             allowsSystemAudio: allowsSystemAudio,
             recentTokens: preferencesStore.preferences.recentDeviceStreamSources,
             preselectedToken: preferencesStore.preferences.deviceStreamLastSource
-                ?? preferencesStore.preferences.deviceStreamLastDeviceUID.map { "device:\($0)" },
-            fallbackDeviceUID: InputAudioDeviceResolver.defaultInputDeviceUID()
+                ?? preferencesStore.preferences.deviceStreamLastDeviceUID.map { "device:\($0)" }
         )
         controller.onStream = { [weak self] spec, monitorEnabled, muteSourceOutput in
             guard let self else { return }

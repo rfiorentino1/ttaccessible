@@ -37,8 +37,9 @@ The last ten addresses are kept.
 ## Stream a device, apps or VoiceOver
 
 1. Choose Shortcuts > Stream Audio from This Mac, or press Option-Command-A.
-2. Check what you want to send in the list of sources. It opens on your current choice, and a
-   group that holds something checked starts open, so nothing you've checked is out of reach.
+2. Check what you want to send in the list of sources. It opens on what you streamed last time,
+   and a group that holds something checked starts open, so nothing you've checked is out of
+   reach. The first time, nothing is checked: nothing streams until you choose it.
    **All audio from this Mac** is at the top, then three groups you open and close with the Right
    and Left Arrow keys: **Recently used**, which starts open, **Devices**, and **Applications**,
    which starts with **VoiceOver**. Press Space to check or uncheck the line you're on; with

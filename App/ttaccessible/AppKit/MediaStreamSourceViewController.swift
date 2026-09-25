@@ -73,7 +73,6 @@ final class MediaStreamSourceViewController: NSViewController {
     private let allowsSystemAudio: Bool
     private let recentTokens: [String]
     private let preselectedToken: String?
-    private let fallbackDeviceUID: String?
 
     /// Any input devices, plus any number of applications (VoiceOver counts as one) or all
     /// system audio — those two exclude each other, since it already contains them.
@@ -114,8 +113,7 @@ final class MediaStreamSourceViewController: NSViewController {
          allowsApplicationBrowsing: Bool,
          allowsSystemAudio: Bool,
          recentTokens: [String],
-         preselectedToken: String?,
-         fallbackDeviceUID: String?) {
+         preselectedToken: String?) {
         self.devices = devices
         self.applicationSources = applicationSources
         self.voiceOverAvailable = voiceOverAvailable
@@ -123,7 +121,6 @@ final class MediaStreamSourceViewController: NSViewController {
         self.allowsSystemAudio = allowsSystemAudio
         self.recentTokens = recentTokens
         self.preselectedToken = preselectedToken
-        self.fallbackDeviceUID = fallbackDeviceUID
         super.init(nibName: nil, bundle: nil)
         catalog = makeCatalog()
     }
@@ -141,6 +138,8 @@ final class MediaStreamSourceViewController: NSViewController {
         selectPreferredSource()
         openGroups = catalog.groupsRevealing(orderedSources.filter(isSelected), open: openGroups)
         rebuildList()
+        // Stream starts disabled when nothing was restored.
+        refreshSelectionUI()
     }
 
     override func viewDidAppear() {
@@ -550,28 +549,15 @@ final class MediaStreamSourceViewController: NSViewController {
         streamButton.isEnabled = resolvedSpec != nil
     }
 
-    /// Restores the last streamed selection, falling back to the default input
-    /// device and then to whatever comes first.
+    /// Restores the last streamed selection — and nothing else. With no history (or none of
+    /// it plugged in or running) nothing is checked: the sheet used to check the default
+    /// microphone, which then streamed unless the user thought to uncheck it.
     private func selectPreferredSource() {
-        if let preselectedToken {
-            let tokens = DeviceStreamCaptureSpec.componentTokens(of: preselectedToken)
-            let sources = orderedSources
-            let restored = tokens.compactMap { token in
-                sources.first(where: { $0.persistenceToken == token })
-            }
-            if restored.isEmpty == false {
-                restored.forEach { apply($0, selected: true) }
-                return
-            }
-        }
-        if let fallbackDeviceUID,
-           let device = devices.first(where: { $0.uid == fallbackDeviceUID }) {
-            apply(.inputDevice(device), selected: true)
-            return
-        }
-        if let first = orderedSources.first {
-            apply(first, selected: true)
-        }
+        guard let preselectedToken else { return }
+        let sources = orderedSources
+        DeviceStreamCaptureSpec.componentTokens(of: preselectedToken)
+            .compactMap { token in sources.first(where: { $0.persistenceToken == token }) }
+            .forEach { apply($0, selected: true) }
     }
 
     private func updateMuteAvailability() {
