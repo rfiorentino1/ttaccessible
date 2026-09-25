@@ -88,8 +88,13 @@ final class StreamMixer {
     private let sources: [Source]
     private var mixBuffer: [Float] = []
 
-    init(inputs: [StreamMixerInput]) {
+    /// Keeps the sum under full scale; nil mixes at unity and clips (the tests' bit-exact
+    /// path). MixingCaptureBackend always gives it one.
+    let limiter: PeakLimiter?
+
+    init(inputs: [StreamMixerInput], limiter: PeakLimiter? = nil) {
         sources = inputs.map(Source.init)
+        self.limiter = limiter
     }
 
     func stats(ofSource index: Int) -> SourceStats {
@@ -110,11 +115,13 @@ final class StreamMixer {
         for source in sources {
             add(source, frames: frames)
         }
+        limiter?.process(&mixBuffer, frames: frames)
         if output.count != count {
             output = [Int16](repeating: 0, count: count)
         }
         for index in 0 ..< count {
-            // Sources add up; a sum past full scale clips rather than wrapping round.
+            // Sources add up. The limiter keeps the sum under full scale; without one, a sum
+            // past it clips rather than wrapping round.
             output[index] = Int16(max(-32_768, min(32_767, mixBuffer[index].rounded())))
         }
     }
@@ -217,11 +224,12 @@ final class MixingCaptureBackend: DeviceStreamCaptureBackend {
         let name: String
     }
 
-    /// Delay the mix adds between capture and the stream's ring: the cushion, plus half a
-    /// beat on average. The voice-sync measurement only sees the stream's ring, so it is
-    /// told (MediaSyncClock.setAddedLatency).
+    /// Delay the mix adds between capture and the stream's ring: the cushion, half a beat on
+    /// average, and the limiter's look-ahead. The voice-sync measurement only sees the
+    /// stream's ring, so it is told (MediaSyncClock.setAddedLatency).
     static var addedLatencySeconds: Double {
         StreamMixer.cushionSeconds + Double(beatMilliseconds) / 2_000
+            + PeakLimiter.lookaheadSeconds(sampleRate: StreamMixer.sampleRate)
     }
 
     private static let beatMilliseconds = 10
@@ -246,7 +254,9 @@ final class MixingCaptureBackend: DeviceStreamCaptureBackend {
     init(parts: [Part], output: AudioDeviceStreamSource.PCMRing) {
         self.parts = parts
         self.output = output
-        self.mixer = StreamMixer(inputs: parts.map(\.ring))
+        self.mixer = StreamMixer(inputs: parts.map(\.ring),
+                                 limiter: PeakLimiter(channels: StreamMixer.channels,
+                                                      sampleRate: StreamMixer.sampleRate))
     }
 
     deinit {
@@ -329,6 +339,13 @@ final class MixingCaptureBackend: DeviceStreamCaptureBackend {
                           stats.underruns,
                           stats.skips)
         }
-        AudioLogger.log("stream mix diag: %@", lines.joined(separator: " | "))
+        var limiterLine = ""
+        if let limiter = mixer.limiter {
+            let (framesReduced, deepestGain) = limiter.takeDiagnostics()
+            limiterLine = String(format: " | limiter reduced=%.0fms deepest=%.1fdB",
+                                 Double(framesReduced) / StreamMixer.sampleRate * 1_000,
+                                 20 * log10(Double(deepestGain)))
+        }
+        AudioLogger.log("stream mix diag: %@%@", lines.joined(separator: " | "), limiterLine)
     }
 }
