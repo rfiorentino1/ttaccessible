@@ -33,7 +33,8 @@ adresses sont retenues.
 
 1. Choisissez Raccourcis > Diffuser du son de ce Mac, ou appuyez sur Option + Commande + A.
 2. Cochez ce que vous voulez envoyer dans la liste des sources. Elle s'ouvre sur votre choix
-   actuel. **Tout le son de ce Mac** figure en haut, puis trois groupes que vous ouvrez et fermez
+   actuel, et un groupe qui contient une source cochée est déjà ouvert : rien de ce que vous avez
+   coché ne vous échappe. **Tout le son de ce Mac** figure en haut, puis trois groupes que vous ouvrez et fermez
    avec les flèches droite et gauche : **Utilisées récemment**, ouvert d'emblée, **Périphériques**,
    et **Applications**, qui commence par **VoiceOver**. Appuyez sur Espace pour cocher ou décocher
    la ligne sur laquelle vous êtes ; avec VoiceOver, VO + Espace fait de même. Pour trouver une

@@ -139,6 +139,7 @@ final class MediaStreamSourceViewController: NSViewController {
         super.viewDidLoad()
         setupLayout()
         selectPreferredSource()
+        openGroups = catalog.groupsRevealing(orderedSources.filter(isSelected), open: openGroups)
         rebuildList()
     }
 
@@ -409,15 +410,19 @@ final class MediaStreamSourceViewController: NSViewController {
     }
 
     /// Puts the focus in the list, on the first ticked line — the current choice — or the
-    /// first source when nothing is ticked.
-    private func focusList() {
+    /// first source when nothing is ticked. From the search, `preferChecked` is false: Down
+    /// Arrow goes to the first match, checked or not.
+    private func focusList(preferChecked: Bool = true) {
         view.window?.makeFirstResponder(outlineView)
         guard outlineView.selectedRow < 0 else { return }
         var firstSource: Int?
         for row in 0 ..< outlineView.numberOfRows {
             guard let node = outlineView.item(atRow: row) as? SourceNode, case .source(let spec) = node.kind
             else { continue }
-            if firstSource == nil { firstSource = row }
+            if firstSource == nil {
+                firstSource = row
+                if preferChecked == false { break }
+            }
             if isSelected(spec) { firstSource = row; break }
         }
         guard let row = firstSource ?? (outlineView.numberOfRows > 0 ? 0 : nil) else { return }
@@ -701,7 +706,7 @@ extension MediaStreamSourceViewController: NSSearchFieldDelegate {
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         guard control === searchField, commandSelector == #selector(NSResponder.moveDown(_:)) else { return false }
         outlineView.deselectAll(nil)
-        focusList()
+        focusList(preferChecked: false)
         return true
     }
 }

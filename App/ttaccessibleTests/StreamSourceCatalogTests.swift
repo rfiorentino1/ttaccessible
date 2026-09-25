@@ -80,4 +80,37 @@ final class StreamSourceCatalogTests: XCTestCase {
             resolveMissing: { $0 == "app:com.example.later" ? waited : nil })
         XCTAssertEqual(resolved, [waited])
     }
+
+    // MARK: Checked sources stay in reach
+
+    private let mic = DeviceStreamCaptureSpec.inputDevice(
+        InputAudioDeviceInfo(uid: "BuiltInMic", name: "Microphone", inputChannels: 1, nominalSampleRate: 48_000))
+
+    private func catalogWithDevices(recent: [DeviceStreamCaptureSpec] = []) -> StreamSourceCatalog {
+        StreamSourceCatalog(systemAudio: .systemAudio(), recent: recent, devices: [mic],
+                            applications: [music, safari])
+    }
+
+    func testACheckedDeviceOpensTheDevicesGroup() {
+        // A fresh profile preselects the default input: it must not sit in a closed group.
+        XCTAssertEqual(catalogWithDevices().groupsRevealing([mic], open: [.recent]), [.recent, .devices])
+    }
+
+    func testACheckedApplicationOpensTheApplicationsGroup() {
+        XCTAssertEqual(catalogWithDevices().groupsRevealing([mic, safari], open: []),
+                       [.devices, .applications])
+    }
+
+    func testASourceShownInAnOpenRecentGroupOpensNothingMore() {
+        XCTAssertEqual(catalogWithDevices(recent: [mic]).groupsRevealing([mic], open: [.recent]), [.recent])
+    }
+
+    func testAllAudioNeedsNoGroup() {
+        XCTAssertEqual(catalogWithDevices().groupsRevealing([.systemAudio()], open: []), [])
+    }
+
+    func testAnApplicationOnlyInRecentOpensRecent() {
+        let waited = DeviceStreamCaptureSpec.application(bundleID: "com.example.later", displayName: "Later")
+        XCTAssertEqual(catalogWithDevices(recent: [waited]).groupsRevealing([waited], open: []), [.recent])
+    }
 }
