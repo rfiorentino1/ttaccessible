@@ -415,6 +415,7 @@
 "preferences.audio.inputDevice" = "Input device";
 "preferences.audio.systemDefault" = "System default";
 "preferences.audio.noOutput" = "No output device";
+"preferences.audio.device.notConnected" = "%@ (not connected)";
 "preferences.audio.advanced.title" = "Microphone";
 "preferences.audio.advanced.summary.active" = "%@, %@.";
 "preferences.audio.advanced.summary.processingNone" = "no processing";

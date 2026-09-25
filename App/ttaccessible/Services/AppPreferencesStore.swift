@@ -965,11 +965,8 @@ final class AudioPreferencesStore: ObservableObject {
     }
 
     /// What a device picker's value means for the saved preference. A picker showing
-    /// exactly what the saved preference maps to today changes nothing: while the
-    /// chosen device is unplugged it has no row, so the picker shows System Default,
-    /// and saving that replaced the choice. Unplugging the Audient with this pane open
-    /// left the app on the Mac's speakers after it was plugged back in. It also keeps
-    /// a change on one picker from rewriting the other.
+    /// exactly what the saved preference maps to today changes nothing, which keeps a
+    /// change on one picker from rewriting the other.
     static func preference(
         forPickerID pickerID: String,
         saved: AudioDevicePreference,
@@ -985,15 +982,38 @@ final class AudioPreferencesStore: ObservableObject {
         Self.selectionID(for: preference, devices: devices)
     }
 
+    /// The picker value for a saved preference. A chosen device that is unplugged keeps its
+    /// own value, shown on a row of its own (missingDevice): mapping it to System Default,
+    /// as before, saved System Default over the choice when the pane was open (unplugging
+    /// the Audient left the app on the Mac's speakers after it came back), and made System
+    /// Default impossible to pick on purpose, since the picker already showed it.
     static func selectionID(for preference: AudioDevicePreference, devices: [AudioDeviceOption]) -> String {
         if preference.usesNoOutput {
             return Self.noOutputDeviceTag
         }
-        guard let persistentID = preference.persistentID,
-              devices.contains(where: { $0.persistentID == persistentID }) else {
+        guard let persistentID = preference.persistentID, persistentID.isEmpty == false else {
             return Self.defaultDeviceTag
         }
         return persistentID
+    }
+
+    /// The saved device when it isn't plugged in: its picker value and the name its row
+    /// shows. Nil for System Default, No output, or a device that is there.
+    static func missingDevice(for preference: AudioDevicePreference,
+                              devices: [AudioDeviceOption]) -> (id: String, name: String)? {
+        guard preference.usesNoOutput == false,
+              let persistentID = preference.persistentID, persistentID.isEmpty == false,
+              devices.contains(where: { $0.persistentID == persistentID }) == false else { return nil }
+        let name = preference.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? persistentID
+        return (persistentID, L10n.format("preferences.audio.device.notConnected", name))
+    }
+
+    var missingOutputDevice: (id: String, name: String)? {
+        Self.missingDevice(for: state.preferredOutputDevice, devices: state.catalog.outputDevices)
+    }
+
+    var missingInputDevice: (id: String, name: String)? {
+        Self.missingDevice(for: state.preferredInputDevice, devices: state.catalog.inputDevices)
     }
 
     private var hasLoadedFreshCatalog = false
