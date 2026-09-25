@@ -44,8 +44,12 @@ mostly pure/deterministic logic, for example the gain dB↔% and user-volume↔%
 
 The tests do not drive the running UI: AppKit is touched only to build one control and read
 what it reports (`PressActionTextFieldTests`, `AudioGainControlViewTests`,
-`MicrophoneMenuKeyTests`). `DeviceStreamSourceTests` is a live check: it opens a real input
-device and runs the SDK's media probe on the loopback stream, and skips when no input opens.
+`MicrophoneMenuKeyTests`, `MixerOverlayAccessibilityTests`). `HotkeyMenuOwnershipTests` and
+`MicrophoneMenuKeyTests` read the Mac's current keyboard layout (`KeyCodeResolver`) and build
+their chords from it, so they hold on any layout. `DeviceStreamSourceTests` is a live check: it
+opens a real input device and runs the SDK's media probe on the loopback stream, and skips when no
+input opens. `ProcessTapUpdateTests` creates a real private process tap in the test host (macOS
+14.2+) and skips when it can't.
 Verify the UI, the audio path and the SDK in a real session by building and running the app.
 
 ## Language
@@ -112,7 +116,7 @@ Microphone → [AVAudioEngine OR standalone AUHAL] → Float32 PCM → interleav
 
 **No custom DSP, no Audio Unit plugins** — gate/expander/limiter and AU chain were removed intentionally. The user preferred a clean passthrough (AEC excepted).
 
-**App audio capture** — an application's audio, VoiceOver's, or the whole Mac's can be streamed into the channel: CoreAudio process taps (`ProcessTapCaptureBackend`, macOS 14.2+) or ScreenCaptureKit audio (`SCKAudioCaptureBackend`, macOS 13.0–14.1), feeding the ring in `AudioDeviceStreamSource`. Any mix of input devices plus the chosen applications (or the whole Mac) streams together as `DeviceStreamCaptureSpec.combined`: `MixingCaptureBackend` runs each part's backend into a ring of its own and mixes them on a 10 ms wall-clock beat, and `StreamMixer` follows each source's clock by nudging its rate (at most 0.5 %) rather than dropping or padding audio. Sources are picked in `MediaStreamSourceViewController`, a searchable checkbox outline (Recently used, Devices, Applications; list logic in `StreamSourceCatalog`). macOS 12 can stream input devices only.
+**App audio capture** — an application's audio, VoiceOver's, or the whole Mac's can be streamed into the channel: CoreAudio process taps (`ProcessTapCaptureBackend`, macOS 14.2+) or ScreenCaptureKit audio (`SCKAudioCaptureBackend`, macOS 13.0–14.1), feeding the ring in `AudioDeviceStreamSource`. Any mix of input devices plus the chosen applications (or the whole Mac) streams together as `DeviceStreamCaptureSpec.combined`: `MixingCaptureBackend` runs each part's backend into a ring of its own and mixes them on a 10 ms wall-clock beat, and `StreamMixer` follows each source's clock by nudging its rate (at most 0.5 %) rather than dropping or padding audio. A look-ahead `PeakLimiter` (2 ms, −0.1 dBFS) keeps the sum under full scale instead of hard-clipping it; below the ceiling it is only a delay. Sources are picked in `MediaStreamSourceViewController`, a searchable checkbox outline (Recently used, Devices, Applications; list logic in `StreamSourceCatalog`). macOS 12 can stream input devices only.
 
 ### Audio Playback
 
@@ -129,7 +133,11 @@ The `localMedia` numbers and why 90 ms was not enough are explained where they a
 ### Audio Device Hot-Plug
 
 - `AudioDeviceChangeMonitor` listens to CoreAudio property changes (`kAudioHardwarePropertyDevices`, `kAudioHardwarePropertyDefaultInputDevice`, `kAudioHardwarePropertyDefaultOutputDevice`) and posts `audioDevicesDidChange` on the main thread.
-- **AppDelegate** observes this notification (with 500ms debounce) and calls `restartSoundSystem()` which: stops the mic engine, closes the virtual input, calls `TT_RestartSoundSystem()` (forces PortAudio to re-enumerate), re-opens the output device, and restarts the mic engine if it was active. Without `TT_RestartSoundSystem()`, `TT_GetSoundDevices()` returns stale entries.
+- **AppDelegate** observes this notification and hands it to `TeamTalkConnectionController.handleDebouncedAudioHardwareChange` (500 ms debounce). `processAudioHardwareChangeLocked` compares an `AudioRoutingSnapshot` taken before and after (UIDs and CoreAudio object IDs of the devices in use, and whether the chosen output is plugged in, all read from CoreAudio) and `audioRouteReaction` decides:
+  - **the input moved** (the open mic's device under a new object ID, a new system default input while it is used, the chosen input gone, or back while `microphoneAwaitingInputDevice` waits for it, or a sample-rate change) → `restartSoundSystem()`: stops the mic engine, closes the virtual input, calls `TT_RestartSoundSystem()` (forces PortAudio to re-enumerate; without it `TT_GetSoundDevices()` returns stale entries), re-opens the output, and restarts the mic as it was;
+  - **only the output moved** → `reinitializeAudioDevicesLocked(reinitInput: false)` rebinds the render engine, as choosing an output in Preferences does, and the mic keeps running (the AEC speaker tap is rebuilt when the system default output changed); an output that isn't open gets the full restart instead;
+  - **nothing that matters** (Continuity devices appearing, our own aggregates) → nothing.
+- Changes arriving during a suppression window (after a restart, or our own tap aggregates) are re-checked when it ends rather than dropped; the comparison is of state, so our own churn compares equal.
 - **AudioPreferencesStore** also observes the notification (with 500ms debounce) to refresh the UI device list.
 - `restartSoundSystem()` has an `isRestartingSoundSystem` guard to prevent re-entrant calls from both handlers.
 
@@ -166,7 +174,7 @@ User volume uses a **geometric (perceptually-uniform / dB-linear) curve** anchor
 
 The audio pipeline in Release mode uses **< 0.2% CPU**. Debug builds are ~75x slower due to Swift runtime overhead (bounds checks, generic metadata resolution) — always profile with Release builds.
 
-**Auto-away check** (`currentIdleSecondsLocked()`) queries IOKit via `IORegistryEntryCreateCFProperties` which involves expensive mach_msg round-trips. It is throttled to once every 5 seconds (not on every 100ms polling tick).
+**Auto-away check** (`currentIdleSecondsLocked()`) reads `CGEventSource.secondsSinceLastEventType` for key and mouse-button presses (see Auto-Away and VoiceOver). The message loop asks every 5 seconds, and every 0.5 seconds while auto-away is active, so coming back is noticed at once — not on every polling tick.
 
 **Profiling**: Use `sample <PID> <seconds> -file /tmp/output.txt` to capture CPU profiles.
 
