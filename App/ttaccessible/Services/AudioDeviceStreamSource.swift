@@ -61,9 +61,7 @@ enum DeviceStreamCaptureSpec: Equatable {
         case .processes(let selection): return selection.persistenceToken
         case .combined(let parts, _):
             // One flat "multi:" token, so restoring it rebuilds every part blind.
-            return Self.multiPersistenceTokenPrefix + parts
-                .flatMap { Self.componentTokens(of: $0.persistenceToken) }
-                .joined(separator: Self.multiPersistenceTokenSeparator)
+            return Self.multiPersistenceToken(parts.flatMap { Self.componentTokens(of: $0.persistenceToken) })
         }
     }
 
@@ -111,6 +109,15 @@ enum DeviceStreamCaptureSpec: Equatable {
     static let multiPersistenceTokenPrefix = "multi:"
     private static let multiPersistenceTokenSeparator = "+"
 
+    /// Joins component tokens into one "multi:" token. A device's UID carries its maker's and
+    /// product's names verbatim (a Shure MV7+, a Rode NT-USB+), so each component has its "%"
+    /// and "+" percent-escaped: the separator never appears inside one.
+    static func multiPersistenceToken(_ components: [String]) -> String {
+        multiPersistenceTokenPrefix + components
+            .map { $0.replacingOccurrences(of: "%", with: "%25").replacingOccurrences(of: "+", with: "%2B") }
+            .joined(separator: multiPersistenceTokenSeparator)
+    }
+
     /// Fuse several application sources (VoiceOver included) into the single
     /// selection the capture backends consume. Returns the sole spec unchanged
     /// when there is only one, and nil when there is nothing to stream.
@@ -129,8 +136,7 @@ enum DeviceStreamCaptureSpec: Equatable {
         for selection in selections where selection.bundleIDPrefixes.isEmpty == false {
             prefixes.append(contentsOf: selection.bundleIDPrefixes.filter { !prefixes.contains($0) })
         }
-        let token = multiPersistenceTokenPrefix
-            + selections.map(\.persistenceToken).joined(separator: multiPersistenceTokenSeparator)
+        let token = multiPersistenceToken(selections.map(\.persistenceToken))
         return .processes(ProcessSelection(
             bundleIDPrefixes: prefixes,
             displayName: joinedDisplayName(selections.map(\.displayName)),
@@ -188,6 +194,8 @@ enum DeviceStreamCaptureSpec: Equatable {
             .dropFirst(multiPersistenceTokenPrefix.count)
             .components(separatedBy: multiPersistenceTokenSeparator)
             .filter { $0.isEmpty == false }
+            // A token saved before the escaping has no "%" sequences and reads back as is.
+            .map { $0.removingPercentEncoding ?? $0 }
     }
 
     /// "Music, Safari and VoiceOver" — but a long selection is summarised

@@ -108,6 +108,21 @@ final class DeviceStreamCaptureSpecTests: XCTestCase {
                        ["device:BuiltInMic", "app:com.apple.Music", "voiceover"])
     }
 
+    func testADeviceWithAPlusInItsUIDSurvivesACombination() {
+        // USB UIDs carry the product name verbatim: a Shure MV7+ or a Rode NT-USB+.
+        let plus = DeviceStreamCaptureSpec.inputDevice(
+            InputAudioDeviceInfo(uid: "AppleUSBAudioEngine:Shure:MV7+:1%2:1", name: "MV7+",
+                                 inputChannels: 1, nominalSampleRate: 48_000))
+        let token = DeviceStreamCaptureSpec.combining([plus, music])?.persistenceToken ?? ""
+        XCTAssertEqual(DeviceStreamCaptureSpec.componentTokens(of: token),
+                       ["device:AppleUSBAudioEngine:Shure:MV7+:1%2:1", "app:com.apple.Music"])
+    }
+
+    func testATokenSavedBeforeTheEscapingStillReads() {
+        XCTAssertEqual(DeviceStreamCaptureSpec.componentTokens(of: "multi:device:BuiltInMic+app:com.apple.Music"),
+                       ["device:BuiltInMic", "app:com.apple.Music"])
+    }
+
     func testOnlyCombinationsWithADeviceCountAsNeedingOne() {
         XCTAssertTrue(DeviceStreamCaptureSpec.combining([mic, music])?.includesInputDevice ?? false)
         XCTAssertFalse(DeviceStreamCaptureSpec.combining([music, .voiceOver()])?.includesInputDevice ?? true)
