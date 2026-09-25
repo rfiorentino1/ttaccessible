@@ -87,7 +87,7 @@ final class ChannelMixerKeyboardController {
         let cmd = mods.contains(.command)
         let shift = mods.contains(.shift)
         let plain = !cmd && !shift && !mods.contains(.option) && !mods.contains(.control)
-        // What the key does to a level — nil for Left/Right (pan, or picking a level).
+        // What the key does to a level — nil for Left/Right, which pan.
         let move = key?.levelMove
 
         // Cmd+Shift + a level key -> the media bus. For the ARROWS this is deliberately
@@ -111,7 +111,7 @@ final class ChannelMixerKeyboardController {
         //   • anywhere else     -> master (output) volume, for the arrows only
         if cmd, !shift, !mods.contains(.option), !mods.contains(.control),
            let key, let move {
-            let strip = findFocusedStripUserID()
+            let strip = findFocusedStrip()
             if let uid = strip {
                 keyRepeat.start(key: key) { [weak self] in
                     guard let self, let c = self.coordinator else { return }
@@ -133,7 +133,7 @@ final class ChannelMixerKeyboardController {
         // meaning, so off a strip these pass straight through.
         if cmd, !shift, !mods.contains(.option), !mods.contains(.control),
            let key, key == .left || key == .right {
-            guard let uid = findFocusedStripUserID() else { keyRepeat.stop(); return false }
+            guard let uid = findFocusedStrip() else { keyRepeat.stop(); return false }
             keyRepeat.start(key: key) { [weak self] in
                 guard let self, let c = self.coordinator else { return }
                 self.announce(c.nudgeMediaPan(uid, right: key == .right))
@@ -145,7 +145,7 @@ final class ChannelMixerKeyboardController {
         // mirroring plain P for voice pan. Strip-gated, so off a strip Cmd+P is untouched.
         if cmd, !shift, !mods.contains(.option), !mods.contains(.control),
            !event.isARepeat, event.charactersIgnoringModifiers?.lowercased() == "p" {
-            guard let uid = findFocusedStripUserID() else { return false }
+            guard let uid = findFocusedStrip() else { return false }
             keyHandler.handle(key: "cmd-p",
                 onSingle: { [weak self] in self?.announceFrom { $0.announceMediaPan(uid) } },
                 onDouble: { [weak self] in self?.announceFrom { $0.resetMediaPan(uid) } })
@@ -164,11 +164,9 @@ final class ChannelMixerKeyboardController {
             || ((event.charactersIgnoringModifiers?.lowercased()).map { ["v", "p", "m", "s"].contains($0) } ?? false)
         guard isMixerKey else { return false }
 
-        guard let focus = findFocusedStrip(), coordinator != nil else {
+        guard let uid = findFocusedStrip(), coordinator != nil else {
             keyRepeat.stop(); return false
         }
-
-        let uid = focus.id
 
         if plain, let key {
             keyRepeat.start(key: key) { [weak self] in
@@ -228,18 +226,10 @@ final class ChannelMixerKeyboardController {
         MixerKey(event: event)
     }
 
-    /// The mixer strip VoiceOver's cursor is in, plus the index of the control inside it
-    /// when the cursor is on one (nil on the strip's own group element).
-    private struct FocusedStrip {
-        let id: Int32
-        let controlIndex: Int?
-    }
-
-    private func findFocusedStripUserID() -> Int32? { findFocusedStrip()?.id }
-
-    /// Walk the AX parent chain of VoiceOver's focused element for a "channel-strip-<id>"
-    /// or "channel-strip-<id>-control-<index>".
-    private func findFocusedStrip() -> FocusedStrip? {
+    /// The user ID of the mixer strip VoiceOver's cursor is in, whether on the strip itself
+    /// or on one of its controls. Walks the AX parent chain for "channel-strip-<id>", or a
+    /// control's "channel-strip-<id>-control-<index>" (which saves a hop).
+    private func findFocusedStrip() -> Int32? {
         let systemWide = AXUIElementCreateSystemWide()
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
@@ -252,14 +242,8 @@ final class ChannelMixerKeyboardController {
             if AXUIElementCopyAttributeValue(elem, kAXIdentifierAttribute as CFString, &ident) == .success,
                let id = ident as? String, id.hasPrefix(prefix) {
                 let body = id.dropFirst(prefix.count)
-                if let separator = body.range(of: "-control-") {
-                    if let uid = Int32(body[body.startIndex..<separator.lowerBound]),
-                       let index = Int(body[separator.upperBound...]) {
-                        return FocusedStrip(id: uid, controlIndex: index)
-                    }
-                } else if let uid = Int32(body) {
-                    return FocusedStrip(id: uid, controlIndex: nil)
-                }
+                let stripPart = body.range(of: "-control-").map { body[body.startIndex..<$0.lowerBound] } ?? body
+                if let uid = Int32(stripPart) { return uid }
             }
             var parent: CFTypeRef?
             if AXUIElementCopyAttributeValue(elem, kAXParentAttribute as CFString, &parent) == .success,
@@ -276,7 +260,7 @@ final class ChannelMixerKeyboardController {
 // MARK: - Ported timing helpers (from Rocco's Mixer app)
 
 /// The keys that drive a strip. Up/Down, Page Up/Down, Home and End move a level;
-/// Left/Right pan it, or pick a level on the General strip.
+/// Left/Right pan it.
 enum MixerKey: Hashable {
     case up, down, left, right, pageUp, pageDown, home, end
 

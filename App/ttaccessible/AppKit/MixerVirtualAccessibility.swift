@@ -110,8 +110,7 @@ final class VirtualControlView: NSView {
 
     let config: Config
     /// "channel-strip-<stripID>-control-<index>", set by the owning strip. The keyboard
-    /// controller reads it off VoiceOver's AX cursor to know WHICH control is focused —
-    /// the General strip's arrows act on the focused level, not on a fixed one.
+    /// controller reads the strip's ID off it when VoiceOver's cursor is on a control.
     var axIdentifier: String?
     private var announceToggle = false
     private var cachedPickerController: VirtualPickerController?

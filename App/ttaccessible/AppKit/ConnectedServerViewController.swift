@@ -560,7 +560,8 @@ final class ConnectedServerViewController: NSViewController {
         // The global levels are sliders in the window, where you can land on them
         // directly, rather than a strip inside the mixer behind another layer of
         // navigation. Output, input and sound effects keep the order they have always
-        // had; media is new, and sits next to the streaming controls it governs.
+        // had; media, which 02c234f put in the window before af9aa8e moved every level
+        // into the mixer, comes back last, next to the streaming controls it governs.
         let audioControlsStack = NSStackView(views: [
             outputGainControl,
             inputGainControl,
@@ -884,11 +885,14 @@ final class ConnectedServerViewController: NSViewController {
         // to carry a fixed "Microphone control" label with the audio status as its value, so
         // VoiceOver read the server audio status line a second time, on the button, and never
         // read the title at all. The status stays where it belongs, in that line and on F9;
-        // a toggle still announces "Microphone enabled/muted" itself.
+        // every route, the button included, announces "Microphone enabled/muted" itself
+        // (toggleMicrophone(_:)).
         inputGainControl.setValue(session.inputGainDB)
         outputGainControl.setValue(session.outputGainDB)
         soundEffectsGainControl.setValue(preferencesStore.preferences.soundEffectsGainDB)
         mediaGainControl.setValue(preferencesStore.preferences.mediaGainDB)
+        // The mixer's strips are drawn from a published snapshot of the channel's users
+        // (levels, pan, mute, solo); rebuilding it here keeps them in step with the session.
         channelMixerCoordinator.refreshDisplay()
     }
 
@@ -1632,8 +1636,6 @@ final class ConnectedServerViewController: NSViewController {
         }
     }
 
-    // Pressing the in-window mic button directly makes VoiceOver re-read the button's
-    // changed title/state, so skip the redundant spoken status announcement in that case.
     @objc
     func toggleMicrophone(_ sender: Any? = nil) {
         // The button announces like every other route: it no longer carries the audio status

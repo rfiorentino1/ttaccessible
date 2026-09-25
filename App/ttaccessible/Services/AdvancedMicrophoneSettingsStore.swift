@@ -151,10 +151,10 @@ final class AdvancedMicrophoneSettingsStore: ObservableObject {
             return
         }
 
-        // While the live mic engine runs, it owns the input device: monitor it
-        // through the output engine instead of opening a second capture. When it
-        // doesn't (disconnected, muted, not in a channel), the preview opens its own
-        // capture, so you hear yourself whether or not you're muted.
+        // In a channel the live mic engine owns the input device — muted, it is started
+        // with its gate closed — so the preview monitors it through the output engine
+        // instead of opening a second capture. Disconnected or outside a channel, the
+        // preview opens its own capture. Either way you hear yourself, muted or not.
         isPreviewRunning = true
         lastErrorMessage = nil
         connectionController.startPreviewMonitorIfLiveMicrophone { [weak self] live in
