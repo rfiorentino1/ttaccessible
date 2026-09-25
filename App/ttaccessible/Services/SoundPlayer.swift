@@ -115,7 +115,7 @@ final class SoundPlayer {
     }
 
     /// Follow the chosen device to its current ID, or to the default output while it
-    /// is missing. Does nothing when the answer hasn't changed.
+    /// is missing or none was chosen. Does nothing when the answer hasn't changed.
     private func reresolveOutputDevice() {
         queue.async { [weak self] in
             guard let self else { return }
@@ -123,7 +123,13 @@ final class SoundPlayer {
                 persistentID: self.requestedPersistentID,
                 displayName: self.requestedDisplayName
             )
-            guard deviceID != self.outputDeviceID else { return }
+            // Following the default, the chosen ID stays nil while the default moves: a
+            // running engine is pinned to the old default (applyDeviceLocked), so compare
+            // what it plays on with where the default is now.
+            let followedDefaultMoved = deviceID == nil && self.engine.isRunning
+                && self.appliedDeviceID != InputAudioDeviceResolver.defaultOutputDeviceUID()
+                    .flatMap { InputAudioDeviceResolver.audioDeviceID(forUID: $0) }
+            guard deviceID != self.outputDeviceID || followedDefaultMoved else { return }
             self.pinOutputDeviceLocked(deviceID)
         }
     }
