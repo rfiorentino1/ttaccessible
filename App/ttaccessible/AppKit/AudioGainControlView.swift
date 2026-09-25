@@ -84,24 +84,22 @@ final class AudioGainControlView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        guard let move = Self.levelMove(for: event.specialKey) else {
+        guard let move = Self.levelMove(for: event) else {
             super.keyDown(with: event)
             return
         }
         apply(move)
     }
 
-    /// The same key→distance table the mixer uses, so a level moves by the same amount
-    /// whichever route reaches it. Home was jumping to 0 % here and to 100 % in the mixer.
-    private static func levelMove(for key: NSEvent.SpecialKey?) -> MixerLevelMove? {
-        switch key {
-        case .leftArrow, .downArrow: return .step(up: false)
-        case .rightArrow, .upArrow: return .step(up: true)
-        case .pageUp: return .page(up: true)
-        case .pageDown: return .page(up: false)
-        case .home: return .toMax
-        case .end: return .toMin
-        default: return nil
+    /// The mixer's own key table (MixerKey.levelMove), so a level moves by the same amount
+    /// whichever route reaches it — Home was jumping to 0 % here and to 100 % in the mixer.
+    /// Left and Right, which pan a strip, step a slider, as they do any slider.
+    static func levelMove(for event: NSEvent) -> MixerLevelMove? {
+        switch MixerKey(event: event) {
+        case .left: return .step(up: false)
+        case .right: return .step(up: true)
+        case let key?: return key.levelMove
+        case nil: return nil
         }
     }
 
@@ -170,7 +168,8 @@ final class AudioGainControlView: NSView {
         return AppPreferences.clampGainDB((clamped / 100 * 48) - 24)
     }
 
+    /// Localized like the mixer's own readout: "50%", "50 %" in French, "%50" in Turkish.
     static func format(percent value: Double) -> String {
-        String(format: "%.0f%%", min(max(value.rounded(), 0), 100))
+        L10n.format("mixer.value.percent", Int(min(max(value.rounded(), 0), 100)))
     }
 }

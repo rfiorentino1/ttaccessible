@@ -18,27 +18,46 @@ final class AudioGainControlViewTests: XCTestCase {
         AudioGainControlView(title: "Output", accessibilityLabel: "Output") { _ in }
     }
 
+    private func key(_ functionKey: Int) -> NSEvent {
+        let character = String(Character(UnicodeScalar(UInt32(functionKey))!))
+        return NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.function],
+                                timestamp: 0, windowNumber: 0, context: nil,
+                                characters: character, charactersIgnoringModifiers: character,
+                                isARepeat: false, keyCode: 0)!
+    }
+
+    /// The readout in the test host's language: "50%", "50 %" in French.
+    private func percent(_ value: Int) -> String {
+        L10n.format("mixer.value.percent", value)
+    }
+
     func testHomeGoesToTheTopAndEndToTheBottom() {
+        // The keys themselves, through the same table the mixer reads.
+        XCTAssertEqual(AudioGainControlView.levelMove(for: key(NSHomeFunctionKey)), .toMax)
+        XCTAssertEqual(AudioGainControlView.levelMove(for: key(NSEndFunctionKey)), .toMin)
+        XCTAssertEqual(AudioGainControlView.levelMove(for: key(NSLeftArrowFunctionKey)), .step(up: false))
+        XCTAssertEqual(AudioGainControlView.levelMove(for: key(NSRightArrowFunctionKey)), .step(up: true))
+        XCTAssertEqual(AudioGainControlView.levelMove(for: key(NSPageUpFunctionKey)), .page(up: true))
         let control = makeControl()
-        XCTAssertEqual(control.apply(.toMax), "100%")
-        XCTAssertEqual(control.apply(.toMin), "0%")
+        XCTAssertEqual(control.apply(.toMax), percent(100))
+        XCTAssertEqual(control.apply(.toMin), percent(0))
     }
 
     func testArrowMovesOnePercentAndPageMovesTen() {
         let control = makeControl()
         control.setValue(0)                       // unity == 50 %
-        XCTAssertEqual(control.apply(.step(up: true)), "51%")
-        XCTAssertEqual(control.apply(.step(up: false)), "50%")
-        XCTAssertEqual(control.apply(.page(up: true)), "60%")
-        XCTAssertEqual(control.apply(.page(up: false)), "50%")
+        XCTAssertEqual(control.apply(.step(up: true)), percent(51))
+        XCTAssertEqual(control.apply(.step(up: false)), percent(50))
+        XCTAssertEqual(control.apply(.page(up: true)), percent(60))
+        XCTAssertEqual(control.apply(.page(up: false)), percent(50))
     }
 
     func testMovesClampAtTheEnds() {
         let control = makeControl()
         control.apply(.toMax)
-        XCTAssertEqual(control.apply(.step(up: true)), "100%")
+        XCTAssertEqual(control.apply(.step(up: true)), percent(100))
         control.apply(.toMin)
-        XCTAssertEqual(control.apply(.step(up: false)), "0%")
+        XCTAssertEqual(control.apply(.step(up: false)), percent(0))
     }
 
     func testTheChangeHandlerSeesEveryMove() {

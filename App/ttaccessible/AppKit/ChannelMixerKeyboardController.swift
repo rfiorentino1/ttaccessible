@@ -225,18 +225,7 @@ final class ChannelMixerKeyboardController {
     }
 
     private func mixerKey(from event: NSEvent) -> MixerKey? {
-        guard let scalar = event.charactersIgnoringModifiers?.unicodeScalars.first else { return nil }
-        switch Int(scalar.value) {
-        case NSUpArrowFunctionKey: return .up
-        case NSDownArrowFunctionKey: return .down
-        case NSLeftArrowFunctionKey: return .left
-        case NSRightArrowFunctionKey: return .right
-        case NSPageUpFunctionKey: return .pageUp
-        case NSPageDownFunctionKey: return .pageDown
-        case NSHomeFunctionKey: return .home
-        case NSEndFunctionKey: return .end
-        default: return nil
-        }
+        MixerKey(event: event)
     }
 
     /// The mixer strip VoiceOver's cursor is in, plus the index of the control inside it
@@ -290,6 +279,23 @@ final class ChannelMixerKeyboardController {
 /// Left/Right pan it, or pick a level on the General strip.
 enum MixerKey: Hashable {
     case up, down, left, right, pageUp, pageDown, home, end
+
+    /// The key an event carries, or nil for any other key. Shared with the window's level
+    /// sliders (AudioGainControlView), so both read the keys the same way.
+    init?(event: NSEvent) {
+        guard let scalar = event.charactersIgnoringModifiers?.unicodeScalars.first else { return nil }
+        switch Int(scalar.value) {
+        case NSUpArrowFunctionKey: self = .up
+        case NSDownArrowFunctionKey: self = .down
+        case NSLeftArrowFunctionKey: self = .left
+        case NSRightArrowFunctionKey: self = .right
+        case NSPageUpFunctionKey: self = .pageUp
+        case NSPageDownFunctionKey: self = .pageDown
+        case NSHomeFunctionKey: self = .home
+        case NSEndFunctionKey: self = .end
+        default: return nil
+        }
+    }
 
     /// What the key does to a level — nil for Left/Right.
     var levelMove: MixerLevelMove? {
